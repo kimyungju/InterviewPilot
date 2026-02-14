@@ -27,9 +27,12 @@ export async function createInterview(
   const responseText = await generateFromPrompt(inputPrompt);
   let jsonMockResp: string;
   try {
-    jsonMockResp = cleanJsonResponse(responseText);
-    // Validate it's parseable JSON
-    JSON.parse(jsonMockResp);
+    const cleaned = cleanJsonResponse(responseText);
+    const parsed = JSON.parse(cleaned);
+    // Normalize: extract array if wrapped in object
+    const arr = Array.isArray(parsed) ? parsed : Object.values(parsed).find(Array.isArray);
+    if (!arr) throw new Error("Invalid format");
+    jsonMockResp = JSON.stringify(arr);
   } catch {
     throw new Error("AI returned invalid response. Please try again.");
   }
