@@ -31,7 +31,8 @@ export default function StartInterviewPage() {
       getInterview(params.interviewId).then((data) => {
         if (data?.jsonMockResp) {
           const parsed = JSON.parse(data.jsonMockResp);
-          setQuestions(parsed);
+          const arr = Array.isArray(parsed) ? parsed : Object.values(parsed).find(Array.isArray) || [];
+          setQuestions(arr);
         }
       });
     }
