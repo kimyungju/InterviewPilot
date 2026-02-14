@@ -2,24 +2,37 @@
 
 import { db } from "@/lib/db";
 import { MockInterview } from "@/lib/schema";
-import { chatSession, cleanJsonResponse } from "@/lib/gemini";
+import { generateFromPrompt, cleanJsonResponse } from "@/lib/gemini";
 import { v4 as uuidv4 } from "uuid";
 import { eq, desc } from "drizzle-orm";
+import { currentUser } from "@clerk/nextjs/server";
+
+async function getAuthEmail(): Promise<string> {
+  const user = await currentUser();
+  if (!user?.emailAddresses?.[0]?.emailAddress) {
+    throw new Error("Unauthorized");
+  }
+  return user.emailAddresses[0].emailAddress;
+}
 
 export async function createInterview(
   jobPosition: string,
   jobDesc: string,
-  jobExperience: string,
-  userEmail: string
+  jobExperience: string
 ) {
-  const inputPrompt = `Job position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. Based on this information, give me 5 interview questions with answers in JSON format. Each object should have "question" and "answer" fields.`;
+  const userEmail = await getAuthEmail();
 
-  const result = await chatSession.sendMessage(inputPrompt);
-  const responseText = result.response.text();
-  const jsonMockResp = cleanJsonResponse(responseText);
+  const inputPrompt = `Job position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. Based on this information, give me 5 interview questions with answers. Respond with ONLY a JSON array, no other text. Format: [{"question": "...", "answer": "..."}]`;
 
-  // Validate it's parseable JSON
-  JSON.parse(jsonMockResp);
+  const responseText = await generateFromPrompt(inputPrompt);
+  let jsonMockResp: string;
+  try {
+    jsonMockResp = cleanJsonResponse(responseText);
+    // Validate it's parseable JSON
+    JSON.parse(jsonMockResp);
+  } catch {
+    throw new Error("AI returned invalid response. Please try again.");
+  }
 
   const mockId = uuidv4();
 
@@ -36,7 +49,8 @@ export async function createInterview(
   return { mockId };
 }
 
-export async function getInterviewList(userEmail: string) {
+export async function getInterviewList() {
+  const userEmail = await getAuthEmail();
   return db
     .select()
     .from(MockInterview)
@@ -45,9 +59,13 @@ export async function getInterviewList(userEmail: string) {
 }
 
 export async function getInterview(mockId: string) {
+  const userEmail = await getAuthEmail();
   const result = await db
     .select()
     .from(MockInterview)
     .where(eq(MockInterview.mockId, mockId));
+  if (result[0] && result[0].createdBy !== userEmail) {
+    return null;
+  }
   return result[0] || null;
 }
