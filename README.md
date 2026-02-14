@@ -1,38 +1,110 @@
-# AI-Resume-Interview-Generator
+# AI Mock Interview Generator
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+AI-powered mock interview platform with speech recognition, PDF resume upload, and personalized feedback.
+
+## Features
+
+- **AI-generated interview questions** — configurable type, difficulty, and count via OpenAI
+- **Two creation modes** — Auto Generate from job details, or From Your Content with pasted/uploaded reference material
+- **PDF resume upload** — server-side text extraction feeds context to AI question generation
+- **Live speech recognition** — answer questions naturally using the Web Speech API
+- **Text-to-speech** — questions read aloud with a countdown timer before recording
+- **Webcam integration** — optional camera feed during interviews
+- **AI-powered feedback** — per-answer ratings with competency scores (Technical Knowledge, Communication Clarity, Problem Solving, Relevance)
+- **PDF feedback reports** — download a detailed breakdown of your performance
+- **Dark mode** — theme toggle via `next-themes`
+- **Authentication** — Clerk-based sign-in/sign-up with protected dashboard routes
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 16 (App Router, Server Actions) |
+| Language | TypeScript, React 19 |
+| Auth | Clerk |
+| Database | Supabase PostgreSQL via Drizzle ORM + Neon serverless driver |
+| AI | OpenAI API (gpt-4o-mini) |
+| Styling | Tailwind CSS v4, Shadcn UI (New York style) |
+| Speech | Web Speech API (recognition + synthesis) |
+| PDF | pdf-parse (extraction), jsPDF (report generation) |
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- A [Clerk](https://clerk.com) account
+- An [OpenAI](https://platform.openai.com) API key
+- A [Supabase](https://supabase.com) project (PostgreSQL)
+
+### Setup
 
 ```bash
+# 1. Clone the repo
+git clone https://github.com/<your-username>/ai-resume-interview-generator.git
+cd ai-resume-interview-generator
+
+# 2. Install dependencies
+npm install
+
+# 3. Set up environment variables
+cp .env.example .env.local
+# Fill in the values (see Environment Variables below)
+
+# 4. Push database schema
+npx drizzle-kit push
+
+# 5. Start the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Create a `.env.local` file from `.env.example` and fill in the following:
 
-## Learn More
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (client-side) |
+| `CLERK_SECRET_KEY` | Clerk secret key (server-side) |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | Sign-in route (default: `/sign-in`) |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Sign-up route (default: `/sign-up`) |
+| `OPENAI_API_KEY` | OpenAI API key (server-side only) |
+| `SUPABASE_DB_URL` | PostgreSQL connection string from Supabase |
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/
+├── actions/          # Server actions (interview, answer, pdf)
+├── dashboard/        # Protected routes
+│   ├── _components/  # Dashboard-scoped components
+│   └── interview/    # Interview setup, live session, feedback
+├── sign-in/          # Clerk sign-in page
+└── sign-up/          # Clerk sign-up page
+lib/
+├── db.ts             # Drizzle ORM + Neon serverless connection
+├── schema.ts         # MockInterview & UserAnswer tables
+├── gemini.ts         # OpenAI client + JSON response cleaner
+├── generatePdf.ts    # PDF feedback report generation
+└── utils.ts          # Shadcn cn() helper
+components/ui/        # Shadcn UI components
+types/                # TypeScript declarations (Web Speech API)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## How It Works
 
-## Deploy on Vercel
+1. **Create** — Enter job title, description, experience level, and optionally upload a resume. Choose to auto-generate questions or provide your own reference material. OpenAI generates tailored interview questions.
+2. **Practice** — Answer each question via speech recognition or text input. A webcam feed is available for simulating real interview conditions. Questions are read aloud with a countdown before recording begins.
+3. **Review** — AI evaluates each answer and provides ratings, detailed feedback, and competency scores across four dimensions. Export the full report as a PDF.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run start` | Run production server |
+| `npm run lint` | Run ESLint |
+| `npx drizzle-kit push` | Push schema changes to database |

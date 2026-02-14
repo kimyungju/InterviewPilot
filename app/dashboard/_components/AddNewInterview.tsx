@@ -374,6 +374,7 @@ export default function AddNewInterview() {
                       type="number"
                       placeholder="e.g. 3"
                       required
+                      min={0}
                       max={50}
                       value={jobExperience}
                       onChange={(e) => setJobExperience(e.target.value)}
