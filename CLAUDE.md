@@ -18,7 +18,7 @@ Required in `.env.local` (not committed):
 
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — Clerk auth
 - `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `NEXT_PUBLIC_CLERK_SIGN_UP_URL` — Clerk routes
-- `NEXT_PUBLIC_GEMINI_API_KEY` — Google Gemini AI
+- `GEMINI_API_KEY` — Google Gemini AI (server-side only, no `NEXT_PUBLIC_` prefix)
 - `SUPABASE_DB_URL` — PostgreSQL connection string for Drizzle ORM
 
 ## Architecture

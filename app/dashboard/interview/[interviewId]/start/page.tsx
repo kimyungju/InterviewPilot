@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
 import { getInterview } from "@/app/actions/interview";
 import { submitAnswer } from "@/app/actions/answer";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,6 @@ interface QuestionAnswer {
 export default function StartInterviewPage() {
   const params = useParams<{ interviewId: string }>();
   const router = useRouter();
-  const { user } = useUser();
 
   const [questions, setQuestions] = useState<QuestionAnswer[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -78,7 +76,7 @@ export default function StartInterviewPage() {
   };
 
   const handleSubmitAnswer = async () => {
-    if (!user?.primaryEmailAddress?.emailAddress || !questions[activeIndex]) return;
+    if (!questions[activeIndex]) return;
     if (isRecording && recognition) {
       recognition.stop();
       setIsRecording(false);
@@ -90,8 +88,7 @@ export default function StartInterviewPage() {
         params.interviewId,
         questions[activeIndex].question,
         questions[activeIndex].answer,
-        userAnswer,
-        user.primaryEmailAddress.emailAddress
+        userAnswer
       );
 
       if (activeIndex < questions.length - 1) {

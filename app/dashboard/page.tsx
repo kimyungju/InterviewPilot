@@ -1,6 +1,5 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import AddNewInterview from "./_components/AddNewInterview";
 import InterviewCard from "./_components/InterviewCard";
@@ -15,14 +14,11 @@ interface Interview {
 }
 
 export default function DashboardPage() {
-  const { user } = useUser();
   const [interviews, setInterviews] = useState<Interview[]>([]);
 
   useEffect(() => {
-    if (user?.primaryEmailAddress?.emailAddress) {
-      getInterviewList(user.primaryEmailAddress.emailAddress).then(setInterviews);
-    }
-  }, [user]);
+    getInterviewList().then(setInterviews);
+  }, []);
 
   return (
     <div className="py-10">

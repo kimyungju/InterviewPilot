@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -24,20 +23,17 @@ export default function AddNewInterview() {
   const [jobExperience, setJobExperience] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { user } = useUser();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.primaryEmailAddress?.emailAddress) return;
 
     setLoading(true);
     try {
       const { mockId } = await createInterview(
         jobPosition,
         jobDesc,
-        jobExperience,
-        user.primaryEmailAddress.emailAddress
+        jobExperience
       );
       setOpen(false);
       router.push(`/dashboard/interview/${mockId}`);

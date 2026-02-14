@@ -5,13 +5,23 @@ import { MockInterview } from "@/lib/schema";
 import { chatSession, cleanJsonResponse } from "@/lib/gemini";
 import { v4 as uuidv4 } from "uuid";
 import { eq, desc } from "drizzle-orm";
+import { currentUser } from "@clerk/nextjs/server";
+
+async function getAuthEmail(): Promise<string> {
+  const user = await currentUser();
+  if (!user?.emailAddresses?.[0]?.emailAddress) {
+    throw new Error("Unauthorized");
+  }
+  return user.emailAddresses[0].emailAddress;
+}
 
 export async function createInterview(
   jobPosition: string,
   jobDesc: string,
-  jobExperience: string,
-  userEmail: string
+  jobExperience: string
 ) {
+  const userEmail = await getAuthEmail();
+
   const inputPrompt = `Job position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. Based on this information, give me 5 interview questions with answers in JSON format. Each object should have "question" and "answer" fields.`;
 
   const result = await chatSession.sendMessage(inputPrompt);
@@ -36,7 +46,8 @@ export async function createInterview(
   return { mockId };
 }
 
-export async function getInterviewList(userEmail: string) {
+export async function getInterviewList() {
+  const userEmail = await getAuthEmail();
   return db
     .select()
     .from(MockInterview)

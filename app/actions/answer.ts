@@ -4,14 +4,20 @@ import { db } from "@/lib/db";
 import { UserAnswer } from "@/lib/schema";
 import { chatSession, cleanJsonResponse } from "@/lib/gemini";
 import { eq } from "drizzle-orm";
+import { currentUser } from "@clerk/nextjs/server";
 
 export async function submitAnswer(
   mockIdRef: string,
   question: string,
   correctAns: string,
-  userAns: string,
-  userEmail: string
+  userAns: string
 ) {
+  const user = await currentUser();
+  if (!user?.emailAddresses?.[0]?.emailAddress) {
+    throw new Error("Unauthorized");
+  }
+  const userEmail = user.emailAddresses[0].emailAddress;
+
   const feedbackPrompt = `Question: "${question}". User Answer: "${userAns}". Based on the question and user answer, please give a rating out of 5 and feedback in 3-5 lines in JSON format with "rating" and "feedback" fields.`;
 
   const result = await chatSession.sendMessage(feedbackPrompt);
