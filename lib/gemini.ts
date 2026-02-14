@@ -1,14 +1,16 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+});
 
-export const chatSession = genAI
-  .getGenerativeModel({ model: "gemini-1.5-flash" })
-  .startChat({
-    generationConfig: {
-      maxOutputTokens: 8192,
-    },
+export async function generateFromPrompt(prompt: string): Promise<string> {
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [{ role: "user", content: prompt }],
   });
+  return response.choices[0].message.content || "";
+}
 
 export function cleanJsonResponse(text: string): string {
   return text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();

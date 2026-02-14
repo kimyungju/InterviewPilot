@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { MockInterview } from "@/lib/schema";
-import { chatSession, cleanJsonResponse } from "@/lib/gemini";
+import { generateFromPrompt, cleanJsonResponse } from "@/lib/gemini";
 import { v4 as uuidv4 } from "uuid";
 import { eq, desc } from "drizzle-orm";
 import { currentUser } from "@clerk/nextjs/server";
@@ -24,8 +24,7 @@ export async function createInterview(
 
   const inputPrompt = `Job position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. Based on this information, give me 5 interview questions with answers in JSON format. Each object should have "question" and "answer" fields.`;
 
-  const result = await chatSession.sendMessage(inputPrompt);
-  const responseText = result.response.text();
+  const responseText = await generateFromPrompt(inputPrompt);
   const jsonMockResp = cleanJsonResponse(responseText);
 
   // Validate it's parseable JSON

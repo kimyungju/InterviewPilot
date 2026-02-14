@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { UserAnswer } from "@/lib/schema";
-import { chatSession, cleanJsonResponse } from "@/lib/gemini";
+import { generateFromPrompt, cleanJsonResponse } from "@/lib/gemini";
 import { eq } from "drizzle-orm";
 import { currentUser } from "@clerk/nextjs/server";
 
@@ -20,8 +20,7 @@ export async function submitAnswer(
 
   const feedbackPrompt = `Question: "${question}". User Answer: "${userAns}". Based on the question and user answer, please give a rating out of 5 and feedback in 3-5 lines in JSON format with "rating" and "feedback" fields.`;
 
-  const result = await chatSession.sendMessage(feedbackPrompt);
-  const responseText = result.response.text();
+  const responseText = await generateFromPrompt(feedbackPrompt);
   const parsed = JSON.parse(cleanJsonResponse(responseText));
 
   await db.insert(UserAnswer).values({

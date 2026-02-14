@@ -18,7 +18,7 @@ Required in `.env.local` (not committed):
 
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` — Clerk auth
 - `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `NEXT_PUBLIC_CLERK_SIGN_UP_URL` — Clerk routes
-- `GEMINI_API_KEY` — Google Gemini AI (server-side only, no `NEXT_PUBLIC_` prefix)
+- `OPENAI_API_KEY` — OpenAI API (server-side only, no `NEXT_PUBLIC_` prefix)
 - `SUPABASE_DB_URL` — PostgreSQL connection string for Drizzle ORM
 
 ## Architecture
@@ -28,14 +28,14 @@ Required in `.env.local` (not committed):
 ### Data Flow
 
 ```
-User Form → Server Action → Gemini API → Drizzle ORM → Supabase PostgreSQL
+User Form → Server Action → OpenAI API → Drizzle ORM → Supabase PostgreSQL
 ```
 
-**Interview lifecycle:** Create (Gemini generates 5 Q&A) → Execute (speech recognition captures answers) → Feedback (Gemini rates each answer)
+**Interview lifecycle:** Create (OpenAI generates 5 Q&A) → Execute (speech recognition captures answers) → Feedback (OpenAI rates each answer)
 
 ### Key Layers
 
-- **`lib/`** — Shared infrastructure: `db.ts` (Drizzle + Neon serverless driver), `schema.ts` (MockInterview/UserAnswer tables), `gemini.ts` (Gemini client + JSON response cleaner), `utils.ts` (Shadcn `cn()` helper)
+- **`lib/`** — Shared infrastructure: `db.ts` (Drizzle + Neon serverless driver), `schema.ts` (MockInterview/UserAnswer tables), `gemini.ts` (OpenAI client + JSON response cleaner), `utils.ts` (Shadcn `cn()` helper)
 - **`app/actions/`** — Server actions: `interview.ts` (create/list/get interviews), `answer.ts` (submit answers with AI feedback, get answers)
 - **`app/dashboard/`** — Protected routes (Clerk middleware in `middleware.ts` guards `/dashboard/**`)
 - **`components/ui/`** — Shadcn UI components (button, dialog, input, textarea, collapsible). Auto-generated, do not manually modify.
@@ -54,7 +54,7 @@ User Form → Server Action → Gemini API → Drizzle ORM → Supabase PostgreS
 ### Database Schema (Drizzle ORM)
 
 Two tables in `lib/schema.ts`:
-- **MockInterview** — stores job details + Gemini's 5 Q&A pairs as JSON string (`jsonMockResp`), linked by `mockId` (UUID)
+- **MockInterview** — stores job details + AI-generated 5 Q&A pairs as JSON string (`jsonMockResp`), linked by `mockId` (UUID)
 - **UserAnswer** — stores per-question user answer, AI feedback, and rating, linked by `mockIdRef`
 
 ## Conventions
@@ -64,7 +64,7 @@ Two tables in `lib/schema.ts`:
 - **Icons:** Lucide React (`lucide-react`)
 - **Styling:** Tailwind CSS v4 with responsive grids. Theme tokens defined as CSS variables in `app/globals.css`
 - **Dashboard components:** Scoped under `app/dashboard/_components/` (Next.js convention to exclude from routing)
-- **Gemini responses:** Always strip markdown code fences via `cleanJsonResponse()` before `JSON.parse()`
+- **AI responses:** Always strip markdown code fences via `cleanJsonResponse()` before `JSON.parse()`
 
 ## Commit Message Rules
 
