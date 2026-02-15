@@ -162,6 +162,7 @@ export async function createInterview(
     questionCount?: string;
     language?: string;
     customQuestions?: string[];
+    bankSelection?: "random" | "in-order";
   }
 ) {
   const userEmail = await getAuthEmail();
@@ -179,10 +180,23 @@ export async function createInterview(
   const languageInstruction = buildLanguageInstruction(language);
 
   let inputPrompt: string;
+  let selected: string[] | undefined;
 
   if (customQuestions && customQuestions.length > 0) {
+    const selectionMethod = options?.bankSelection || "random";
+
+    if (customQuestions.length <= count) {
+      selected = selectionMethod === "random"
+        ? [...customQuestions].sort(() => Math.random() - 0.5)
+        : [...customQuestions];
+    } else if (selectionMethod === "random") {
+      selected = [...customQuestions].sort(() => Math.random() - 0.5).slice(0, count);
+    } else {
+      selected = customQuestions.slice(0, count);
+    }
+
     const typeInstruction = buildTypeInstruction(interviewType, language);
-    const questionsText = customQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+    const questionsText = selected.map((q, i) => `${i + 1}. ${q}`).join("\n");
     inputPrompt = `${languageInstruction ? languageInstruction + "\n\n" : ""}Job position: ${jobPosition}.\n\nGenerate detailed model answers for these specific interview questions:\n\n${questionsText}\n\n${typeInstruction}\n${difficultyInstruction}\n\nProvide comprehensive, professional answers. Respond with ONLY a JSON array. Format: [{"question": "...", "answer": "..."}]`;
   } else if (referenceContent) {
     const contentInstruction = language === "ko"
@@ -209,8 +223,8 @@ export async function createInterview(
       : Object.values(parsed).find(Array.isArray);
     if (!arr) throw new Error("No questions array found");
 
-    if (customQuestions && customQuestions.length > 0) {
-      const validated = customQuestions.map((q, i) => ({
+    if (selected && selected.length > 0) {
+      const validated = selected.map((q, i) => ({
         question: q,
         answer: (arr[i] as { answer?: string })?.answer || "",
       }));
@@ -234,8 +248,8 @@ export async function createInterview(
     interviewType,
     difficulty,
     resumeText: resumeText || null,
-    questionCount: customQuestions && customQuestions.length > 0
-      ? String(customQuestions.length)
+    questionCount: selected
+      ? String(selected.length)
       : questionCount,
     language,
     createdBy: userEmail,

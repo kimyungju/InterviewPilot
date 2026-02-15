@@ -30,7 +30,7 @@ import { createInterview, suggestQuestions } from "@/app/actions/interview";
 import { extractTextFromPdf } from "@/app/actions/pdf";
 import { useTranslation } from "@/lib/i18n/LanguageContext";
 
-type Step = "choose" | "form" | "questions" | "resume";
+type Step = "choose" | "form" | "resume";
 type Mode = "auto" | "content";
 type InterviewType = "general" | "behavioral" | "technical" | "system-design";
 type Difficulty = "junior" | "mid" | "senior";
@@ -61,12 +61,10 @@ export default function AddNewInterview() {
   const [resumeText, setResumeText] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Questions step state
-  const [suggestedQs, setSuggestedQs] = useState<string[]>([]);
-  const [selectedQs, setSelectedQs] = useState<Set<number>>(new Set());
-  const [customQs, setCustomQs] = useState<string[]>([]);
-  const [customInput, setCustomInput] = useState("");
+  // Question Bank state
+  const [questionBank, setQuestionBank] = useState("");
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [bankSelection, setBankSelection] = useState<"random" | "in-order">("random");
 
   // PDF upload state
   const [pdfFile, setPdfFile] = useState<File | null>(null);
@@ -94,11 +92,9 @@ export default function AddNewInterview() {
     setExtracting(false);
     setExtractError("");
     setDragOver(false);
-    setSuggestedQs([]);
-    setSelectedQs(new Set());
-    setCustomQs([]);
-    setCustomInput("");
+    setQuestionBank("");
     setLoadingSuggestions(false);
+    setBankSelection("random");
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -161,7 +157,7 @@ export default function AddNewInterview() {
     }
   };
 
-  const loadQuestionSuggestions = async () => {
+  const handleSuggestQuestions = async () => {
     setLoadingSuggestions(true);
     try {
       const { questions } = await suggestQuestions(
@@ -176,39 +172,12 @@ export default function AddNewInterview() {
           language,
         }
       );
-      setSuggestedQs(questions);
-      setSelectedQs(new Set(questions.map((_, i) => i)));
+      setQuestionBank(questions.join("\n"));
     } catch (error) {
-      console.error("Failed to load suggestions:", error);
-      setSuggestedQs([]);
+      console.error("Failed to suggest questions:", error);
     } finally {
       setLoadingSuggestions(false);
     }
-  };
-
-  const toggleSuggestion = (index: number) => {
-    setSelectedQs((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
-  };
-
-  const addCustomQuestion = () => {
-    const trimmed = customInput.trim();
-    if (!trimmed) return;
-    setCustomQs((prev) => [...prev, trimmed]);
-    setCustomInput("");
-  };
-
-  const removeCustomQuestion = (index: number) => {
-    setCustomQs((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const getFinalQuestions = (): string[] => {
-    const selected = suggestedQs.filter((_, i) => selectedQs.has(i));
-    return [...selected, ...customQs];
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -216,7 +185,10 @@ export default function AddNewInterview() {
 
     setLoading(true);
     try {
-      const finalQuestions = getFinalQuestions();
+      const bankLines = questionBank.trim()
+        ? questionBank.split("\n").map(q => q.trim()).filter(Boolean)
+        : [];
+
       const { mockId } = await createInterview(
         jobPosition,
         mode === "auto" ? jobDesc : "",
@@ -228,7 +200,8 @@ export default function AddNewInterview() {
           resumeText: resumeText || undefined,
           questionCount,
           language,
-          customQuestions: finalQuestions.length > 0 ? finalQuestions : undefined,
+          customQuestions: bankLines.length > 0 ? bankLines : undefined,
+          bankSelection: bankLines.length > 0 ? bankSelection : undefined,
         }
       );
       handleOpenChange(false);
@@ -385,8 +358,11 @@ export default function AddNewInterview() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                setStep("questions");
-                loadQuestionSuggestions();
+                if (mode === "auto") {
+                  setStep("resume");
+                } else {
+                  handleSubmit();
+                }
               }}
               className="space-y-5 mt-4"
             >
@@ -529,6 +505,56 @@ export default function AddNewInterview() {
                 </div>
               </div>
 
+              {/* Question Bank */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">{t("create.questionBank")}</label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSuggestQuestions}
+                    disabled={loadingSuggestions || !jobPosition}
+                  >
+                    {loadingSuggestions ? (
+                      <><Loader className="animate-spin mr-1 h-3 w-3" /> {t("create.suggesting")}</>
+                    ) : (
+                      <><Sparkles className="mr-1 h-3 w-3" /> {t("create.suggestQuestions")}</>
+                    )}
+                  </Button>
+                </div>
+                <Textarea
+                  placeholder={t("create.questionBankPlaceholder")}
+                  rows={5}
+                  value={questionBank}
+                  onChange={(e) => setQuestionBank(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t("create.questionBankHint")}
+                </p>
+
+                {questionBank.trim() && (
+                  <div className="mt-3 flex items-center gap-4">
+                    <div className="flex rounded-lg border-2 border-border overflow-hidden">
+                      {(["random", "in-order"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setBankSelection(m)}
+                          className={`px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                            bankSelection === m
+                              ? "bg-primary text-primary-foreground"
+                              : "hover:bg-accent text-muted-foreground"
+                          }`}
+                        >
+                          {t(`create.selection_${m}`)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3 justify-between pt-2">
                 <Button
                   type="button"
@@ -545,148 +571,14 @@ export default function AddNewInterview() {
                   >
                     {t("create.cancel")}
                   </Button>
-                  <Button type="submit">{t("create.next")}</Button>
-                </div>
-              </div>
-            </form>
-          </>
-        )}
-
-        {step === "questions" && (
-          <>
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-display">
-                {t("create.questionsTitle")}
-              </DialogTitle>
-              <DialogDescription>
-                {t("create.questionsDesc")}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-5 mt-4">
-              {/* AI Suggestions */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium">{t("create.aiSuggestions")}</label>
-                  {suggestedQs.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        selectedQs.size === suggestedQs.length
-                          ? setSelectedQs(new Set())
-                          : setSelectedQs(new Set(suggestedQs.map((_, i) => i)))
-                      }
-                      className="text-xs text-primary hover:underline"
-                    >
-                      {selectedQs.size === suggestedQs.length
-                        ? t("create.deselectAll")
-                        : t("create.selectAll")}
-                    </button>
-                  )}
-                </div>
-
-                {loadingSuggestions ? (
-                  <div className="flex flex-col items-center gap-3 p-8 rounded-xl border-2 border-dashed border-border bg-accent/30">
-                    <Loader className="h-6 w-6 text-primary animate-spin" />
-                    <p className="text-sm text-muted-foreground">{t("create.generatingSuggestions")}</p>
-                  </div>
-                ) : suggestedQs.length > 0 ? (
-                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
-                    {suggestedQs.map((q, i) => (
-                      <label
-                        key={i}
-                        className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                          selectedQs.has(i)
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/30"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedQs.has(i)}
-                          onChange={() => toggleSuggestion(i)}
-                          className="mt-0.5 h-4 w-4 rounded"
-                        />
-                        <span className="text-sm">{q}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center p-4 border-2 border-dashed border-border rounded-lg">
-                    {t("create.noSuggestions")}
-                  </p>
-                )}
-              </div>
-
-              {orDivider}
-
-              {/* Custom Questions */}
-              <div>
-                <label className="text-sm font-medium mb-2 block">{t("create.yourQuestions")}</label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={t("create.typeQuestion")}
-                    value={customInput}
-                    onChange={(e) => setCustomInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        addCustomQuestion();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={addCustomQuestion} disabled={!customInput.trim()}>
-                    {t("create.add")}
-                  </Button>
-                </div>
-                {customQs.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    {customQs.map((q, i) => (
-                      <div key={i} className="flex items-start gap-2 p-3 rounded-lg border-2 border-primary/60 bg-primary/5">
-                        <span className="text-sm flex-1">{q}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeCustomQuestion(i)}
-                          className="p-0.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Count summary */}
-              <p className="text-sm text-muted-foreground">
-                {t("create.totalSelected")}: <span className="font-medium text-foreground">{getFinalQuestions().length}</span>
-              </p>
-
-              {/* Navigation */}
-              <div className="flex gap-3 justify-between pt-2">
-                <Button type="button" variant="ghost" onClick={() => setStep("form")}>
-                  <ArrowLeft className="mr-2 h-4 w-4" /> {t("create.back")}
-                </Button>
-                <div className="flex gap-3">
-                  <Button type="button" variant="ghost" onClick={() => handleOpenChange(false)}>
-                    {t("create.cancel")}
-                  </Button>
                   {mode === "auto" ? (
-                    <Button
-                      type="button"
-                      onClick={() => setStep("resume")}
-                      disabled={getFinalQuestions().length === 0 || loadingSuggestions}
-                    >
-                      {t("create.next")}
-                    </Button>
+                    <Button type="submit">{t("create.next")}</Button>
                   ) : (
-                    <Button
-                      type="button"
-                      onClick={() => handleSubmit()}
-                      disabled={getFinalQuestions().length === 0 || loading || loadingSuggestions}
-                    >
+                    <Button type="submit" disabled={loading || !referenceContent}>
                       {loading ? (
-                        <><Loader className="animate-spin mr-2" /> {t("create.generating")}</>
+                        <>
+                          <Loader className="animate-spin mr-2" /> {t("create.generating")}
+                        </>
                       ) : (
                         t("create.startInterview")
                       )}
@@ -694,7 +586,7 @@ export default function AddNewInterview() {
                   )}
                 </div>
               </div>
-            </div>
+            </form>
           </>
         )}
 
@@ -725,7 +617,7 @@ export default function AddNewInterview() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setStep("questions")}
+                  onClick={() => setStep("form")}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" /> {t("create.back")}
                 </Button>
