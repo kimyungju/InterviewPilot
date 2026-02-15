@@ -64,7 +64,18 @@
     "resumeDesc": "Upload a PDF or paste your resume text so AI can personalize questions to your experience. This step is optional.",
     "pasteResume": "Paste your resume text here for personalized questions...",
     "aiProbe": "AI will probe your specific experience and skills",
-    "skip": "Skip"
+    "skip": "Skip",
+    "questionsTitle": "Choose Your Questions",
+    "questionsDesc": "Select from AI suggestions or add your own. AI will generate model answers for evaluation.",
+    "aiSuggestions": "AI Suggestions",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "generatingSuggestions": "Generating suggestions...",
+    "noSuggestions": "No suggestions available. Add your own questions below.",
+    "yourQuestions": "Your Questions",
+    "typeQuestion": "Type your interview question...",
+    "add": "Add",
+    "totalSelected": "Total questions selected"
   },
   "types": {
     "general": "General",

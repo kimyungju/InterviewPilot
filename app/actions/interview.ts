@@ -96,6 +96,60 @@ function buildLanguageInstruction(language: string): string {
   return "";
 }
 
+export async function suggestQuestions(
+  jobPosition: string,
+  jobDesc: string,
+  jobExperience: string,
+  options?: {
+    referenceContent?: string;
+    interviewType?: string;
+    difficulty?: string;
+    questionCount?: string;
+    language?: string;
+  }
+): Promise<{ questions: string[] }> {
+  await getAuthEmail();
+
+  const interviewType = options?.interviewType || "general";
+  const difficulty = options?.difficulty || "mid";
+  const questionCount = options?.questionCount || "5";
+  const referenceContent = options?.referenceContent;
+  const language = options?.language || "en";
+  const count = parseInt(questionCount) || 5;
+
+  const difficultyInstruction = buildDifficultyInstruction(difficulty, language);
+  const languageInstruction = buildLanguageInstruction(language);
+
+  let inputPrompt: string;
+
+  if (referenceContent) {
+    const contentInstruction = language === "ko"
+      ? `아래에 지원자가 제공한 학습 자료가 있습니다. 모든 질문은 반드시 이 자료의 내용에서 직접 도출해야 합니다. 자료에 없는 주제에 대한 일반적인 면접 질문은 생성하지 마세요.`
+      : `The candidate has provided specific study material below. You MUST derive ALL questions directly from this content. Do NOT generate generic interview questions or questions about topics not covered in the material.`;
+
+    inputPrompt = `${languageInstruction ? languageInstruction + "\n\n" : ""}Job position: ${jobPosition}.\n\n${contentInstruction}\n\n--- START OF CONTENT ---\n${referenceContent}\n--- END OF CONTENT ---\n\n${difficultyInstruction}\n\nGenerate exactly ${count} interview questions ONLY (no answers). Every question must test a specific concept, fact, or skill from the content above.\n\nRespond with ONLY a JSON array of question strings. Format: ["Question 1?", "Question 2?"]`;
+  } else {
+    const typeInstruction = buildTypeInstruction(interviewType, language);
+    const diversityInstruction = buildDiversityInstruction(language);
+    inputPrompt = `${languageInstruction ? languageInstruction + "\n\n" : ""}Job position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}.\n\n${typeInstruction}\n${difficultyInstruction}${diversityInstruction}\n\nGenerate ${count} interview questions ONLY (no answers). Respond with ONLY a JSON array of question strings. Format: ["Question 1?", "Question 2?"]`;
+  }
+
+  const responseText = await generateFromPrompt(inputPrompt);
+  try {
+    const parsed = JSON.parse(responseText);
+    const arr = Array.isArray(parsed)
+      ? parsed
+      : Object.values(parsed).find(Array.isArray);
+    if (!arr || !arr.every((q: unknown) => typeof q === "string")) {
+      throw new Error("Invalid format");
+    }
+    return { questions: arr as string[] };
+  } catch {
+    console.error("Failed to parse suggestions:", responseText);
+    throw new Error("Failed to generate suggestions. Please try again.");
+  }
+}
+
 export async function createInterview(
   jobPosition: string,
   jobDesc: string,
@@ -107,6 +161,7 @@ export async function createInterview(
     resumeText?: string;
     questionCount?: string;
     language?: string;
+    customQuestions?: string[];
   }
 ) {
   const userEmail = await getAuthEmail();
@@ -118,17 +173,26 @@ export async function createInterview(
   const referenceContent = options?.referenceContent;
   const language = options?.language || "en";
   const count = parseInt(questionCount) || 5;
+  const customQuestions = options?.customQuestions;
 
-  const typeInstruction = buildTypeInstruction(interviewType, language);
   const difficultyInstruction = buildDifficultyInstruction(difficulty, language);
   const languageInstruction = buildLanguageInstruction(language);
 
-  const diversityInstruction = buildDiversityInstruction(language);
   let inputPrompt: string;
 
-  if (referenceContent) {
-    inputPrompt = `${languageInstruction ? languageInstruction + "\n\n" : ""}Job position: ${jobPosition}. The candidate has provided the following reference content (resume, job posting, study notes, etc.):\n\n${referenceContent}\n\n${typeInstruction}\n${difficultyInstruction}${diversityInstruction}\n\nBased on this content, generate ${count} interview questions with detailed answers that test the candidate's knowledge of the material. Respond with ONLY a JSON array, no other text. Format: [{"question": "...", "answer": "..."}]`;
+  if (customQuestions && customQuestions.length > 0) {
+    const typeInstruction = buildTypeInstruction(interviewType, language);
+    const questionsText = customQuestions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+    inputPrompt = `${languageInstruction ? languageInstruction + "\n\n" : ""}Job position: ${jobPosition}.\n\nGenerate detailed model answers for these specific interview questions:\n\n${questionsText}\n\n${typeInstruction}\n${difficultyInstruction}\n\nProvide comprehensive, professional answers. Respond with ONLY a JSON array. Format: [{"question": "...", "answer": "..."}]`;
+  } else if (referenceContent) {
+    const contentInstruction = language === "ko"
+      ? `아래에 지원자가 제공한 학습 자료가 있습니다. 모든 질문은 반드시 이 자료의 내용에서 직접 도출해야 합니다. 자료에 없는 주제에 대한 일반적인 면접 질문은 생성하지 마세요.`
+      : `The candidate has provided specific study material below. You MUST derive ALL questions directly from this content. Do NOT generate generic interview questions or questions about topics not covered in the material.`;
+
+    inputPrompt = `${languageInstruction ? languageInstruction + "\n\n" : ""}Job position: ${jobPosition}.\n\n${contentInstruction}\n\n--- START OF CONTENT ---\n${referenceContent}\n--- END OF CONTENT ---\n\n${difficultyInstruction}\n\nGenerate exactly ${count} interview questions with detailed answers. Every question must test a specific concept, fact, or skill that appears in the content above. The answers should be based on what the content teaches.\n\nRespond with ONLY a JSON array, no other text. Format: [{"question": "...", "answer": "..."}]`;
   } else {
+    const typeInstruction = buildTypeInstruction(interviewType, language);
+    const diversityInstruction = buildDiversityInstruction(language);
     const resumeSection = resumeText
       ? `\n\nThe candidate has provided their resume:\n${resumeText}\n\nUse the resume to personalize questions — probe specific claims, target gaps between their experience and the job requirements, and reference their actual projects/skills.`
       : "";
@@ -144,7 +208,16 @@ export async function createInterview(
       ? parsed
       : Object.values(parsed).find(Array.isArray);
     if (!arr) throw new Error("No questions array found");
-    jsonMockResp = JSON.stringify(arr);
+
+    if (customQuestions && customQuestions.length > 0) {
+      const validated = customQuestions.map((q, i) => ({
+        question: q,
+        answer: (arr[i] as { answer?: string })?.answer || "",
+      }));
+      jsonMockResp = JSON.stringify(validated);
+    } else {
+      jsonMockResp = JSON.stringify(arr);
+    }
   } catch (e) {
     console.error("Failed to parse AI response:", responseText);
     throw new Error("AI returned invalid response. Please try again.");
@@ -161,7 +234,9 @@ export async function createInterview(
     interviewType,
     difficulty,
     resumeText: resumeText || null,
-    questionCount,
+    questionCount: customQuestions && customQuestions.length > 0
+      ? String(customQuestions.length)
+      : questionCount,
     language,
     createdBy: userEmail,
     createdAt: new Date().toISOString(),
