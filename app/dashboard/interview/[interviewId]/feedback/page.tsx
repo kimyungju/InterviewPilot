@@ -88,6 +88,7 @@ export default function FeedbackPage() {
   const router = useRouter();
   const [answers, setAnswers] = useState<AnswerData[]>([]);
   const { t, language } = useTranslation();
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   const competencyLabels: Record<string, string> = {
     technicalKnowledge: t("feedback.technicalKnowledge"),
@@ -120,8 +121,6 @@ export default function FeedbackPage() {
   }
 
   const ratingNum = parseFloat(overallRating);
-
-  const [pdfLoading, setPdfLoading] = useState(false);
 
   const handleDownloadPdf = async () => {
     setPdfLoading(true);
