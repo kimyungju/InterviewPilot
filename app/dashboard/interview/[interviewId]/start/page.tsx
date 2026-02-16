@@ -36,6 +36,7 @@ export default function StartInterviewPage() {
   const [isFollowUpMode, setIsFollowUpMode] = useState(false);
   const [loadingFollowUp, setLoadingFollowUp] = useState(false);
   const [parentAnswerId, setParentAnswerId] = useState<number | null>(null);
+  const [difficulty, setDifficulty] = useState<string>("mid");
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isRecordingRef = useRef(false);
@@ -51,6 +52,7 @@ export default function StartInterviewPage() {
             ? parsed
             : Object.values(parsed).find(Array.isArray) || [];
           setQuestions(arr);
+          setDifficulty(data.difficulty || "mid");
         }
       });
     }
@@ -98,26 +100,10 @@ export default function StartInterviewPage() {
 
     const utterance = handleTextToSpeech(questions[activeIndex].question);
 
-    const startCountdown = () => {
-      setCountdown(3);
-      const t1 = setTimeout(() => setCountdown(2), 1000);
-      const t2 = setTimeout(() => setCountdown(1), 2000);
-      const t3 = setTimeout(() => {
-        setCountdown(null);
-        if (!isRecordingRef.current && recognitionRef.current) {
-          setUserAnswer("");
-          recognitionRef.current.start();
-          setIsRecording(true);
-          isRecordingRef.current = true;
-        }
-      }, 3000);
-      countdownTimersRef.current = [t1, t2, t3];
-    };
-
     if (utterance) {
-      utterance.onend = startCountdown;
+      utterance.onend = () => startCountdownSequence();
     } else {
-      startCountdown();
+      startCountdownSequence();
     }
 
     return () => {
@@ -163,7 +149,30 @@ export default function StartInterviewPage() {
     return null;
   };
 
+  const startCountdownSequence = () => {
+    countdownTimersRef.current.forEach(clearTimeout);
+    countdownTimersRef.current = [];
+    setCountdown(3);
+    const t1 = setTimeout(() => setCountdown(2), 1000);
+    const t2 = setTimeout(() => setCountdown(1), 2000);
+    const t3 = setTimeout(() => {
+      setCountdown(null);
+      if (!isRecordingRef.current && recognitionRef.current) {
+        setUserAnswer("");
+        recognitionRef.current.start();
+        setIsRecording(true);
+        isRecordingRef.current = true;
+      }
+    }, 3000);
+    countdownTimersRef.current = [t1, t2, t3];
+  };
+
   const moveToNext = () => {
+    window.speechSynthesis?.cancel();
+    countdownTimersRef.current.forEach(clearTimeout);
+    countdownTimersRef.current = [];
+    setCountdown(null);
+
     setFollowUpQuestion(null);
     setIsFollowUpMode(false);
     setParentAnswerId(null);
@@ -205,7 +214,8 @@ export default function StartInterviewPage() {
           "",
           userAnswer,
           language,
-          parentAnswerId
+          parentAnswerId,
+          difficulty
         );
         moveToNext();
       } else {
@@ -215,7 +225,9 @@ export default function StartInterviewPage() {
           questions[activeIndex].question,
           questions[activeIndex].answer,
           userAnswer,
-          language
+          language,
+          null,
+          difficulty
         );
 
         // Generate follow-up question
@@ -231,8 +243,17 @@ export default function StartInterviewPage() {
           setFollowUpQuestion(followUp.followUpQuestion);
           setIsFollowUpMode(true);
           setUserAnswer("");
-          // Read the follow-up question aloud
-          handleTextToSpeech(followUp.followUpQuestion);
+          // Read the follow-up question aloud, then auto-countdown
+          if (speechSupported) {
+            const utterance = handleTextToSpeech(followUp.followUpQuestion);
+            if (utterance) {
+              utterance.onend = () => startCountdownSequence();
+            } else {
+              startCountdownSequence();
+            }
+          } else {
+            handleTextToSpeech(followUp.followUpQuestion);
+          }
         } catch {
           // If follow-up generation fails, just move to next
           moveToNext();

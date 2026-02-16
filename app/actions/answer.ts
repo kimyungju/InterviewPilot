@@ -15,8 +15,37 @@ interface EnhancedFeedback {
     relevance: number;
   };
   strengths: string;
+  praise: string;
+  correction: string;
+  actionableTip: string;
   improvements: string;
   suggestedAnswer: string;
+}
+
+function getLeniency(difficulty: string): { label: string; instructions: string; labelKo: string; instructionsKo: string } {
+  switch (difficulty) {
+    case "junior":
+      return {
+        label: "SUPPORTIVE",
+        instructions: "SUPPORTIVE — This candidate is entry-level. Be encouraging. If the answer is on-topic and shows basic understanding, the minimum overall rating is 3. Focus on building confidence.",
+        labelKo: "격려 모드",
+        instructionsKo: "격려 모드 — 이 지원자는 신입입니다. 격려해 주세요. 답변이 주제에 맞고 기본적인 이해를 보여주면 최소 전체 점수는 3점입니다. 자신감을 키워주는 데 집중하세요.",
+      };
+    case "senior":
+      return {
+        label: "STRICT",
+        instructions: "STRICT — This candidate is senior-level. Hold to high standards. Expect depth, precision, and real-world examples.",
+        labelKo: "엄격 모드",
+        instructionsKo: "엄격 모드 — 이 지원자는 시니어입니다. 높은 기준을 유지하세요. 깊이, 정확성, 실무 예시를 기대하세요.",
+      };
+    default:
+      return {
+        label: "BALANCED",
+        instructions: "BALANCED — Standard evaluation. Recognize effort while maintaining fair standards.",
+        labelKo: "균형 모드",
+        instructionsKo: "균형 모드 — 표준 평가입니다. 노력을 인정하되 공정한 기준을 유지하세요.",
+      };
+  }
 }
 
 export async function submitAnswer(
@@ -25,7 +54,8 @@ export async function submitAnswer(
   correctAns: string,
   userAns: string,
   language?: string,
-  parentAnswerId?: number | null
+  parentAnswerId?: number | null,
+  difficulty?: string
 ) {
   const user = await currentUser();
   if (!user?.emailAddresses?.[0]?.emailAddress) {
@@ -33,29 +63,42 @@ export async function submitAnswer(
   }
   const userEmail = user.emailAddresses[0].emailAddress;
 
+  const leniency = getLeniency(difficulty || "mid");
+
   const feedbackPrompt = language === "ko"
-    ? `당신은 전문 면접 코치입니다. 다음 면접 답변을 평가하세요.
+    ? `당신은 격려하면서도 정직한 면접 코치입니다. 다음 면접 답변을 평가하세요.
+
+평가 모드: ${leniency.labelKo}
+${leniency.instructionsKo}
 
 질문: "${question}"
 예상 답변: "${correctAns}"
 지원자의 답변: "${userAns}"
 
-채점 기준 (1-5점 전체 범위를 사용하세요 — 높은 점수를 기본값으로 하지 마세요):
-- 5점: 우수 — 모든 핵심 요점을 깊이 있게 다루고, 명확한 논리와 좋은 예시를 제시함.
-- 4점: 양호 — 대부분의 핵심 요점을 다루지만, 일부 세부 사항이나 깊이가 부족함.
-- 3점: 보통 — 부분적 이해를 보여줌; 일부 핵심 요점은 다루지만 중요한 부분을 놓침.
-- 2점: 미흡 — 이해도가 낮음; 대부분 모호하거나, 불완전하거나, 간접적으로만 관련됨.
-- 1점: 부족 — 근본적으로 틀리거나, 완전히 주제에서 벗어나거나, 사실상 답변이 없음.
+채점 기준:
 
-추가 사항:
-- 답변은 음성 인식으로 수집되므로 문법 오류, 불필요한 단어, 전사 오류는 무시하세요.
-- 예상 답변의 핵심 요점과 답변의 실질적 내용을 비교하세요. 3점은 핵심 요점의 약 절반을 다룬 수준입니다.
-- "communicationClarity"는 아이디어 구성과 전달력을 측정합니다. 문법이 아닙니다.
-- "relevance"는 답변이 질문의 핵심 주제를 다루는지를 측정합니다.
+1. 키워드 인식: 예상 답변에서 핵심 기술 용어를 파악하세요. 지원자가 이 용어들을 하나라도 올바르게 사용하면 (비격식 표현이라도) technicalKnowledge는 반드시 3 이상이어야 합니다.
 
-다음 JSON 형식으로만 응답하세요 (마크다운이나 추가 텍스트 없이):
+2. 내용 vs 전달: "technicalKnowledge"는 사실적 정확성과 핵심 요점 포함 여부만으로 채점하세요. "communicationClarity"는 아이디어의 구조, 흐름, 일관성만으로 채점하세요. 음성 인식으로 인한 문법 오류나 불필요한 단어는 두 점수 모두 감점하지 마세요.
+
+3. 척도:
+   - 5점: 우수 — 포괄적이고 체계적이며 예시를 포함
+   - 4점: 양호 — 대부분의 핵심 요점을 다루며 사소한 부분만 부족
+   - 3점: 보통 — 핵심 개념의 이해를 보여주며 일부 부족한 점 있음
+   - 2점: 미흡 — 상당한 오해 또는 대부분 주제에서 벗어남
+   - 1점: 부족 — 근본적으로 틀리거나 빈 답변
+
+4. 답변은 음성 인식으로 수집됩니다 — 문법, 불필요한 단어, 전사 오류는 무시하세요. 실질적 내용에 집중하세요.
+
+피드백 형식 (샌드위치 기법):
+
+- "praise": 지원자가 올바르게 한 한 가지를 구체적으로 인정 (실제 답변 내용을 참조)
+- "correction": 하나의 기술적 오류나 부족한 점을 부드럽게 교정 ("~을 고려해 보세요" / "~을 보완하면 좋겠습니다" 등의 표현 사용)
+- "actionableTip": 다음에 사용할 수 있는 구체적인 전문 표현이나 키워드 한 가지
+
+다음 JSON 형식으로만 응답하세요:
 {
-  "rating": <1-5점 전체 점수>,
+  "rating": <전체 1-5점>,
   "competencies": {
     "technicalKnowledge": <1-5점>,
     "communicationClarity": <1-5점>,
@@ -63,43 +106,58 @@ export async function submitAnswer(
     "relevance": <1-5점>
   },
   "strengths": "<잘한 점, 1-2문장, 한국어로>",
-  "improvements": "<개선할 부분, 1-2문장, 한국어로>",
+  "praise": "<올바르게 한 점을 구체적으로 인정, 한국어로>",
+  "correction": "<하나의 오류나 부족한 점을 부드럽게 교정, 한국어로>",
+  "actionableTip": "<다음에 사용할 전문 표현이나 키워드, 한국어로>",
   "suggestedAnswer": "<더 나은 답변 예시, 2-3문장, 한국어로>"
 }`
-    : `You are an expert interview coach. Evaluate the following interview answer.
+    : `You are an encouraging yet honest interview coach. Evaluate the following answer.
+
+Evaluation Mode: ${leniency.label}
+${leniency.instructions}
 
 Question: "${question}"
 Expected Answer: "${correctAns}"
-User's Answer: "${userAns}"
+Candidate's Answer: "${userAns}"
 
-Scoring rubric (use the FULL 1-5 scale — do not default to high scores):
-- 5: Excellent — covers all key points with depth, clear reasoning, and strong examples.
-- 4: Good — covers most key points but missing some detail or depth.
-- 3: Adequate — demonstrates partial understanding; covers some key points but misses important ones.
-- 2: Weak — shows minimal understanding; mostly vague, incomplete, or only tangentially related.
-- 1: Poor — fundamentally wrong, completely off-topic, or essentially empty.
+SCORING RULES:
 
-Additional notes:
-- Answers are captured via speech recognition, so ignore grammar mistakes, filler words, and transcription artifacts.
-- Compare the substance of the answer against the expected answer's key points. A score of 3 means roughly half the key points are addressed.
-- "communicationClarity" measures how well the candidate structures and conveys ideas, not grammar.
-- "relevance" measures whether the answer addresses the question's core topic.
+1. Keyword Recognition: Identify key technical terms from the Expected Answer. If the candidate uses ANY of these terms correctly (even with informal phrasing), technicalKnowledge MUST be ≥ 3.
 
-Respond with ONLY a JSON object (no markdown, no extra text) in this exact format:
+2. Content vs. Clarity: Score "technicalKnowledge" based ONLY on factual correctness and coverage of key points. Score "communicationClarity" based ONLY on structure, flow, and coherence of ideas. Poor grammar or filler words from speech recognition must NOT reduce either score.
+
+3. Scale:
+   - 5: Excellent — comprehensive, well-structured, with examples
+   - 4: Good — covers most key points, minor gaps
+   - 3: Adequate — shows understanding of core concepts, some gaps
+   - 2: Weak — significant misunderstanding or mostly off-topic
+   - 1: Poor — fundamentally wrong or empty
+
+4. Answers are captured via speech recognition — ignore grammar, filler words, and transcription errors. Focus on substance.
+
+FEEDBACK FORMAT (Sandwich Method):
+
+- "praise": Acknowledge ONE specific thing the candidate got right (reference their actual words)
+- "correction": Gently correct ONE technical error or gap (use "consider" / "you might refine" instead of "wrong")
+- "actionableTip": Give ONE specific professional phrase or keyword to use next time
+
+Respond with ONLY JSON:
 {
-  "rating": <overall score 1-5>,
+  "rating": <overall 1-5>,
   "competencies": {
-    "technicalKnowledge": <score 1-5>,
-    "communicationClarity": <score 1-5>,
-    "problemSolving": <score 1-5>,
-    "relevance": <score 1-5>
+    "technicalKnowledge": <1-5>,
+    "communicationClarity": <1-5>,
+    "problemSolving": <1-5>,
+    "relevance": <1-5>
   },
-  "strengths": "<what the candidate did well, 1-2 sentences>",
-  "improvements": "<specific areas to improve, 1-2 sentences>",
-  "suggestedAnswer": "<a stronger version of the answer, 2-3 sentences>"
+  "strengths": "<what was done well, 1-2 sentences>",
+  "praise": "<specific acknowledgment of something correct>",
+  "correction": "<gentle correction of one error or gap>",
+  "actionableTip": "<one professional phrase or keyword to use next time>",
+  "suggestedAnswer": "<a stronger version, 2-3 sentences>"
 }`;
 
-  const responseText = await generateFromPrompt(feedbackPrompt);
+  const responseText = await generateFromPrompt(feedbackPrompt, 0.7);
   let parsed: EnhancedFeedback;
   try {
     parsed = JSON.parse(responseText);
@@ -111,7 +169,10 @@ Respond with ONLY a JSON object (no markdown, no extra text) in this exact forma
     rating: parsed.rating,
     competencies: parsed.competencies,
     strengths: parsed.strengths,
-    improvements: parsed.improvements,
+    praise: parsed.praise || "",
+    correction: parsed.correction || "",
+    actionableTip: parsed.actionableTip || "",
+    improvements: parsed.correction || parsed.improvements || "",
     suggestedAnswer: parsed.suggestedAnswer,
   });
 

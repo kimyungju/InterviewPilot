@@ -25,6 +25,9 @@ interface EnhancedFeedback {
   competencies: Competencies;
   strengths: string;
   improvements: string;
+  praise?: string;
+  correction?: string;
+  actionableTip?: string;
   suggestedAnswer: string;
 }
 
@@ -243,8 +246,39 @@ export default function FeedbackPage() {
                   </div>
                 )}
 
-                {/* Improvements (enhanced) */}
-                {enhanced?.improvements && (
+                {/* Sandwich Feedback (new format) */}
+                {enhanced?.praise && (
+                  <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/50">
+                    <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider mb-1.5">
+                      {t("feedback.praise")}
+                    </p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">
+                      {enhanced.praise}
+                    </p>
+                  </div>
+                )}
+                {enhanced?.correction && (
+                  <div className="p-4 rounded-lg bg-amber-50/50 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/50">
+                    <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-1.5">
+                      {t("feedback.correction")}
+                    </p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">
+                      {enhanced.correction}
+                    </p>
+                  </div>
+                )}
+                {enhanced?.actionableTip && (
+                  <div className="p-4 rounded-lg bg-blue-50/50 border border-blue-100 dark:bg-blue-950/20 dark:border-blue-900/50">
+                    <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-1.5">
+                      {t("feedback.actionableTip")}
+                    </p>
+                    <p className="text-sm text-foreground/80 leading-relaxed">
+                      {enhanced.actionableTip}
+                    </p>
+                  </div>
+                )}
+                {/* Fallback for old answers that only have improvements */}
+                {!enhanced?.praise && enhanced?.improvements && (
                   <div className="p-4 rounded-lg bg-amber-50/50 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/50">
                     <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider mb-1.5">
                       {t("feedback.improvements")}
@@ -300,12 +334,35 @@ export default function FeedbackPage() {
                     </div>
                     {(() => {
                       const efb = parseEnhancedFeedback(answer.followUp.feedback);
-                      return efb?.improvements ? (
-                        <div className="p-3 rounded bg-background/50 mt-2">
-                          <p className="text-xs font-semibold text-amber-500 uppercase mb-1">{t("feedback.improvements")}</p>
-                          <p className="text-sm">{efb.improvements}</p>
-                        </div>
-                      ) : null;
+                      if (!efb) return null;
+                      return (
+                        <>
+                          {efb.praise && (
+                            <div className="p-3 rounded bg-background/50 mt-2">
+                              <p className="text-xs font-semibold text-emerald-500 uppercase mb-1">{t("feedback.praise")}</p>
+                              <p className="text-sm">{efb.praise}</p>
+                            </div>
+                          )}
+                          {efb.correction && (
+                            <div className="p-3 rounded bg-background/50 mt-2">
+                              <p className="text-xs font-semibold text-amber-500 uppercase mb-1">{t("feedback.correction")}</p>
+                              <p className="text-sm">{efb.correction}</p>
+                            </div>
+                          )}
+                          {efb.actionableTip && (
+                            <div className="p-3 rounded bg-background/50 mt-2">
+                              <p className="text-xs font-semibold text-blue-500 uppercase mb-1">{t("feedback.actionableTip")}</p>
+                              <p className="text-sm">{efb.actionableTip}</p>
+                            </div>
+                          )}
+                          {!efb.praise && efb.improvements && (
+                            <div className="p-3 rounded bg-background/50 mt-2">
+                              <p className="text-xs font-semibold text-amber-500 uppercase mb-1">{t("feedback.improvements")}</p>
+                              <p className="text-sm">{efb.improvements}</p>
+                            </div>
+                          )}
+                        </>
+                      );
                     })()}
                   </div>
                 )}

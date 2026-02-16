@@ -18,6 +18,9 @@ interface EnhancedFeedback {
   };
   strengths?: string;
   improvements?: string;
+  praise?: string;
+  correction?: string;
+  actionableTip?: string;
   suggestedAnswer?: string;
 }
 
@@ -76,6 +79,9 @@ function getLabels(language: string) {
       relevance: "적절성",
       strengths: "강점",
       improvements: "개선 사항",
+      praise: "잘한 점",
+      correction: "보완할 점",
+      actionableTip: "실전 팁",
       yourAnswer: "나의 답변",
       noAnswer: "답변이 기록되지 않았습니다",
       suggestedAnswer: "제안 답변",
@@ -96,6 +102,9 @@ function getLabels(language: string) {
     relevance: "Relevance",
     strengths: "Strengths",
     improvements: "Areas to Improve",
+    praise: "What You Did Well",
+    correction: "Area to Refine",
+    actionableTip: "Pro Tip",
     yourAnswer: "Your Answer",
     noAnswer: "No answer recorded",
     suggestedAnswer: "Suggested Answer",
@@ -342,13 +351,19 @@ export async function generatePdf(answers: AnswerData[], overallRating: string, 
     if (enhanced?.strengths) {
       section(L.strengths, enhanced.strengths, C.emeraldBg, C.emerald);
     }
-    if (enhanced?.improvements) {
-      section(
-        L.improvements,
-        enhanced.improvements,
-        C.amberBg,
-        C.amber
-      );
+    // Sandwich feedback (new format)
+    if (enhanced?.praise) {
+      section(L.praise, enhanced.praise, C.emeraldBg, C.emerald);
+    }
+    if (enhanced?.correction) {
+      section(L.correction, enhanced.correction, C.amberBg, C.amber);
+    }
+    if (enhanced?.actionableTip) {
+      section(L.actionableTip, enhanced.actionableTip, C.blueBg, C.blue);
+    }
+    // Fallback for old answers without sandwich fields
+    if (!enhanced?.praise && enhanced?.improvements) {
+      section(L.improvements, enhanced.improvements, C.amberBg, C.amber);
     }
 
     section(
