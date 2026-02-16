@@ -24,7 +24,8 @@ export async function submitAnswer(
   question: string,
   correctAns: string,
   userAns: string,
-  language?: string
+  language?: string,
+  parentAnswerId?: number | null
 ) {
   const user = await currentUser();
   if (!user?.emailAddresses?.[0]?.emailAddress) {
@@ -114,7 +115,7 @@ Respond with ONLY a JSON object (no markdown, no extra text) in this exact forma
     suggestedAnswer: parsed.suggestedAnswer,
   });
 
-  await db.insert(UserAnswer).values({
+  const [inserted] = await db.insert(UserAnswer).values({
     mockIdRef,
     question,
     correctAns,
@@ -123,9 +124,10 @@ Respond with ONLY a JSON object (no markdown, no extra text) in this exact forma
     rating: String(parsed.rating),
     userEmail,
     createdAt: new Date().toISOString(),
-  });
+    parentAnswerId: parentAnswerId ?? null,
+  }).returning({ id: UserAnswer.id });
 
-  return { rating: parsed.rating, feedback: feedbackJson };
+  return { rating: parsed.rating, feedback: feedbackJson, answerId: inserted.id };
 }
 
 export async function getAnswers(mockIdRef: string) {
@@ -141,4 +143,54 @@ export async function getAnswers(mockIdRef: string) {
     .where(
       and(eq(UserAnswer.mockIdRef, mockIdRef), eq(UserAnswer.userEmail, userEmail))
     );
+}
+
+export async function generateFollowUpQuestion(
+  originalQuestion: string,
+  expectedAnswer: string,
+  userAnswer: string,
+  language?: string
+) {
+  const user = await currentUser();
+  if (!user?.emailAddresses?.[0]?.emailAddress) {
+    throw new Error("Unauthorized");
+  }
+
+  const prompt = language === "ko"
+    ? `당신은 전문 면접관입니다. 지원자의 답변을 바탕으로 더 깊이 파고드는 후속 질문 1개를 생성하세요.
+
+원래 질문: "${originalQuestion}"
+예상 답변: "${expectedAnswer}"
+지원자의 답변: "${userAnswer}"
+
+후속 질문은 다음 중 하나여야 합니다:
+- 모호하거나 불완전한 부분을 구체적으로 묻기
+- 실제 예시나 경험 요청
+- 기술적 세부사항 탐색
+- 트레이드오프나 실제 적용 방법 질문
+
+실제 면접관처럼 자연스럽고 대화적인 톤으로 작성하세요.
+
+JSON 형식으로만 응답하세요:
+{ "followUpQuestion": "후속 질문..." }`
+    : `You are an expert interviewer. Generate ONE follow-up question that probes deeper based on the candidate's answer.
+
+Original Question: "${originalQuestion}"
+Expected Answer: "${expectedAnswer}"
+Candidate's Answer: "${userAnswer}"
+
+The follow-up should do one of:
+- Address vague or incomplete parts of the answer
+- Ask for a specific example or scenario
+- Probe deeper technical details
+- Explore trade-offs or real-world application
+
+Use a natural, conversational tone like a real interviewer.
+
+Respond with ONLY JSON:
+{ "followUpQuestion": "Your follow-up question..." }`;
+
+  const responseText = await generateFromPrompt(prompt);
+  const parsed = JSON.parse(responseText);
+  return { followUpQuestion: parsed.followUpQuestion as string };
 }
