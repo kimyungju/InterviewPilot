@@ -41,6 +41,19 @@ export default function StartInterviewPage() {
   const [parentAnswerId, setParentAnswerId] = useState<number | null>(null);
   const [difficulty, setDifficulty] = useState<string>("mid");
 
+  // DEBUG OVERLAY — remove after mobile debugging
+  const [debugInfo, setDebugInfo] = useState({
+    recStatus: "idle",
+    lastEvent: "-",
+    lastError: "-",
+    restartCount: 0,
+    micTracks: 0,
+    audioCtxState: "N/A",
+  });
+  const dbg = (patch: Partial<typeof debugInfo>) =>
+    setDebugInfo((prev) => ({ ...prev, ...patch }));
+  const ts = () => new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isRecordingRef = useRef(false);
   const countdownTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -92,8 +105,10 @@ export default function StartInterviewPage() {
               ? accumulatedTextRef.current + " " + sessionText
               : sessionText
           );
+          dbg({ recStatus: "result", lastEvent: `onresult ${ts()} (${event.results.length} results)` });
         };
         rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+          dbg({ recStatus: "error", lastError: event.error, lastEvent: `onerror ${ts()} [${event.error}]` });
           const fatalErrors = ["not-allowed", "audio-capture", "network", "service-not-allowed"];
           if (fatalErrors.includes(event.error)) {
             setIsRecording(false);
@@ -103,6 +118,7 @@ export default function StartInterviewPage() {
           // Recoverable errors (no-speech, aborted): onend handler will auto-restart
         };
         rec.onend = () => {
+          dbg({ recStatus: "ended", lastEvent: `onend ${ts()} (recording=${isRecordingRef.current}, retries=${restartAttemptsRef.current})`, restartCount: restartAttemptsRef.current });
           if (isRecordingRef.current) {
             // Preserve transcript from this session before restarting
             if (sessionTextRef.current) {
@@ -177,6 +193,22 @@ export default function StartInterviewPage() {
       recordingSessionRef.current?.cleanup();
       recordingSessionRef.current = null;
     };
+  }, []);
+
+  // DEBUG: poll AudioContext state + mic track status
+  useEffect(() => {
+    const id = setInterval(() => {
+      let ctxState = "N/A";
+      try {
+        const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        ctxState = ctx.state;
+        ctx.close();
+      } catch {}
+      const track = audioTrackRef.current;
+      const micInfo = track ? (track.readyState === "live" ? 1 : 0) : 0;
+      dbg({ audioCtxState: ctxState, micTracks: micInfo });
+    }, 1000);
+    return () => clearInterval(id);
   }, []);
 
   const uploadAndLinkVideo = (blob: Blob, answerId: number) => {
@@ -307,6 +339,7 @@ export default function StartInterviewPage() {
       setIsRecording(false);
       isRecordingRef.current = false;
       stopVideoRecording(); // discard blob — user toggled off manually
+      dbg({ recStatus: "stopped", lastEvent: `manual-stop ${ts()}` });
     } else {
       setUserAnswer("");
       accumulatedTextRef.current = "";
@@ -314,12 +347,14 @@ export default function StartInterviewPage() {
       restartAttemptsRef.current = 0;
       try {
         recognition.start();
-      } catch {
+      } catch (e) {
+        dbg({ recStatus: "error", lastError: `start() threw: ${e}`, lastEvent: `manual-start-fail ${ts()}` });
         return;
       }
       setIsRecording(true);
       isRecordingRef.current = true;
       startVideoRecording();
+      dbg({ recStatus: "started", lastEvent: `manual-start ${ts()}` });
     }
   };
 
@@ -363,12 +398,14 @@ export default function StartInterviewPage() {
         restartAttemptsRef.current = 0;
         try {
           recognitionRef.current.start();
-        } catch {
+        } catch (e) {
+          dbg({ recStatus: "error", lastError: `auto-start() threw: ${e}`, lastEvent: `auto-start-fail ${ts()}` });
           return;
         }
         setIsRecording(true);
         isRecordingRef.current = true;
         startVideoRecording();
+        dbg({ recStatus: "started", lastEvent: `auto-start ${ts()}` });
       }
     }, 3000);
     countdownTimersRef.current = [t1, t2, t3];
@@ -749,6 +786,30 @@ export default function StartInterviewPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* DEBUG OVERLAY — remove after mobile debugging */}
+      <div style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 9999,
+        background: "rgba(0,0,0,0.85)",
+        color: "#0f0",
+        fontFamily: "monospace",
+        fontSize: "11px",
+        padding: "8px 12px",
+        lineHeight: 1.4,
+        maxHeight: "30vh",
+        overflowY: "auto",
+        pointerEvents: "none",
+      }}>
+        <div>rec: {debugInfo.recStatus} | restarts: {debugInfo.restartCount}</div>
+        <div>last: {debugInfo.lastEvent}</div>
+        <div>err: {debugInfo.lastError}</div>
+        <div>mic: {debugInfo.micTracks} | audioCtx: {debugInfo.audioCtxState}</div>
+        <div>accum: {accumulatedTextRef.current.length}ch | session: {sessionTextRef.current.length}ch</div>
       </div>
     </div>
   );
