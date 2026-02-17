@@ -12,7 +12,8 @@ AI-powered mock interview platform with speech recognition, PDF resume upload, a
 - **Text-to-speech** — questions read aloud with a countdown timer before recording; choose male or female interviewer voice
 - **Webcam integration** — optional camera feed during interviews
 - **AI-powered feedback** — difficulty-aware scoring with competency scores (Technical Knowledge, Communication Clarity, Problem Solving, Relevance) and sandwich feedback method
-- **PDF feedback reports** — download a detailed breakdown of your performance
+- **Per-question video recording** — records webcam + audio for each answer, uploads to Supabase Storage, and plays back on the feedback page
+- **PDF feedback reports** — download a detailed breakdown of your performance with QR codes linking to recorded video answers
 - **Dashboard filters** — search, filter by interview type and difficulty, and sort interviews
 - **Internationalization** — English and Korean language support
 - **Dark mode** — theme toggle via `next-themes`
@@ -29,8 +30,9 @@ AI-powered mock interview platform with speech recognition, PDF resume upload, a
 | AI | OpenAI API (gpt-4o-mini) |
 | Styling | Tailwind CSS v4, Shadcn UI (New York style) |
 | Speech | Web Speech API (recognition + synthesis) |
+| Video | MediaRecorder API + Supabase Storage |
 | i18n | Custom context-based solution (English, Korean) |
-| PDF | pdf-parse (extraction), jsPDF (report generation) |
+| PDF | pdf-parse (extraction), jsPDF + qrcode (report generation) |
 
 ## Getting Started
 
@@ -76,6 +78,8 @@ Create a `.env.local` file from `.env.example` and fill in the following:
 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Sign-up route (default: `/sign-up`) |
 | `OPENAI_API_KEY` | OpenAI API key (server-side only) |
 | `SUPABASE_DB_URL` | PostgreSQL connection string from Supabase |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for Storage video uploads) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (for Storage video uploads) |
 
 ## Project Structure
 
@@ -91,7 +95,10 @@ lib/
 ├── db.ts             # Drizzle ORM + Neon serverless connection
 ├── schema.ts         # MockInterview & UserAnswer tables
 ├── gemini.ts         # OpenAI client + JSON response cleaner
-├── generatePdf.ts    # PDF feedback report generation
+├── generatePdf.ts    # PDF feedback report generation (with QR codes)
+├── mediaRecorder.ts  # Per-question video recording via MediaRecorder API
+├── videoUpload.ts    # Upload recorded videos to Supabase Storage
+├── supabaseClient.ts # Supabase client (lazy-init for Storage access)
 ├── voiceUtils.ts     # TTS voice selection and gender classification
 ├── fontLoader.ts     # Korean font loader for PDF generation
 ├── i18n/             # Internationalization (en.json, ko.json, LanguageContext)
@@ -103,8 +110,8 @@ types/                # TypeScript declarations (Web Speech API)
 ## How It Works
 
 1. **Create** — Enter job title, description, experience level, and optionally upload a resume. Configure interview type, difficulty, and question count. Choose to auto-generate questions or provide your own question bank. OpenAI generates tailored interview questions.
-2. **Practice** — Answer each question via speech recognition or text input. Questions are read aloud (with selectable voice gender) followed by a countdown before recording begins. AI generates follow-up questions based on your answers. A webcam feed is available for simulating real interview conditions.
-3. **Review** — AI evaluates each answer with difficulty-aware scoring, detailed feedback, and competency scores across four dimensions. Follow-up Q&A is shown alongside main questions. Export the full report as a PDF.
+2. **Practice** — Answer each question via speech recognition or text input. Questions are read aloud (with selectable voice gender) followed by a countdown before recording begins. AI generates follow-up questions based on your answers. A webcam feed is available for simulating real interview conditions, and each answer is video-recorded and uploaded for later review.
+3. **Review** — AI evaluates each answer with difficulty-aware scoring, detailed feedback, and competency scores across four dimensions. Follow-up Q&A is shown alongside main questions. Play back your recorded video for each answer. Export the full report as a PDF with QR codes linking to your video recordings.
 
 ## Scripts
 
