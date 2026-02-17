@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader, Mic, Volume2, SkipForward } from "lucide-react";
 import Webcam from "react-webcam";
 import { getStoredVoiceGender, selectVoice, loadVoices } from "@/lib/voiceUtils";
+import { speakWithCloudTts, type CloudTtsHandle } from "@/lib/cloudTts";
 import { useTranslation } from "@/lib/i18n/LanguageContext";
 
 interface QuestionAnswer {
@@ -47,6 +48,7 @@ export default function StartInterviewPage() {
   const recordingSessionRef = useRef<RecordingSession | null>(null);
   const audioTrackRef = useRef<MediaStreamTrack | null>(null);
   const speechGenRef = useRef(0);
+  const cloudTtsRef = useRef<CloudTtsHandle | null>(null);
 
   useEffect(() => {
     if (params.interviewId) {
@@ -175,21 +177,42 @@ export default function StartInterviewPage() {
     countdownTimersRef.current = [];
     setCountdown(null);
     window.speechSynthesis?.cancel();
+    cloudTtsRef.current?.cancel();
 
-    // Chrome bug workaround: cancel() followed immediately by speak() silently
-    // swallows the speech. Adding a 100ms delay between cancel and speak fixes it.
     const gen = speechGenRef.current;
+    const text = questions[activeIndex].question;
+
+    if (language === "ko") {
+      const preferredGender = getStoredVoiceGender();
+      speakWithCloudTts(text, preferredGender).then((handle) => {
+        if (gen !== speechGenRef.current) { handle.cancel(); return; }
+        cloudTtsRef.current = handle;
+        handle.onended = () => {
+          if (gen !== speechGenRef.current) return;
+          startCountdownSequence();
+        };
+      }).catch(() => {
+        if (gen === speechGenRef.current) startCountdownSequence();
+      });
+
+      return () => {
+        countdownTimersRef.current.forEach(clearTimeout);
+        countdownTimersRef.current = [];
+        cloudTtsRef.current?.cancel();
+      };
+    }
+
+    // English: use Web Speech API with Chrome cancel/speak workaround
     let fallbackTimer: ReturnType<typeof setTimeout>;
     const speakTimer = setTimeout(() => {
       if (gen !== speechGenRef.current) return;
-      const text = questions[activeIndex].question;
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === "ko" ? "ko-KR" : "en-US";
+      utterance.lang = "en-US";
       const preferredGender = getStoredVoiceGender();
       const availableVoices =
         voices.length > 0 ? voices : window.speechSynthesis.getVoices();
-      const selectedVoice = selectVoice(availableVoices, preferredGender, language);
-      if (selectedVoice) utterance.voice = selectedVoice;
+      const voice = selectVoice(availableVoices, preferredGender, language);
+      if (voice) utterance.voice = voice;
 
       let countdownStarted = false;
       const triggerCountdown = () => {
@@ -203,10 +226,7 @@ export default function StartInterviewPage() {
       utterance.onend = triggerCountdown;
       utterance.onerror = triggerCountdown;
 
-      // Fallback: if onend doesn't fire, start countdown after estimated duration
-      // Korean syllabic blocks take ~250ms each vs ~80ms per English letter
-      const msPerChar = language === "ko" ? 250 : 80;
-      const estimatedMs = Math.max(text.length * msPerChar, 3000) + 2000;
+      const estimatedMs = Math.max(text.length * 80, 3000) + 2000;
       fallbackTimer = setTimeout(triggerCountdown, estimatedMs);
 
       window.speechSynthesis.speak(utterance);
@@ -225,6 +245,7 @@ export default function StartInterviewPage() {
     if (!recognition) return;
 
     window.speechSynthesis?.cancel();
+    cloudTtsRef.current?.cancel();
     countdownTimersRef.current.forEach(clearTimeout);
     countdownTimersRef.current = [];
     setCountdown(null);
@@ -244,20 +265,28 @@ export default function StartInterviewPage() {
   };
 
   const handleTextToSpeech = (text: string) => {
-    if (!("speechSynthesis" in window)) return null;
-    window.speechSynthesis.cancel();
+    window.speechSynthesis?.cancel();
+    cloudTtsRef.current?.cancel();
+
+    if (language === "ko") {
+      speakWithCloudTts(text, getStoredVoiceGender()).then((handle) => {
+        cloudTtsRef.current = handle;
+      });
+      return;
+    }
+
+    if (!("speechSynthesis" in window)) return;
     // Chrome workaround: delay between cancel and speak
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === "ko" ? "ko-KR" : "en-US";
+      utterance.lang = "en-US";
       const preferredGender = getStoredVoiceGender();
       const availableVoices =
         voices.length > 0 ? voices : window.speechSynthesis.getVoices();
-      const selectedVoice = selectVoice(availableVoices, preferredGender, language);
-      if (selectedVoice) utterance.voice = selectedVoice;
+      const voice = selectVoice(availableVoices, preferredGender, language);
+      if (voice) utterance.voice = voice;
       window.speechSynthesis.speak(utterance);
     }, 100);
-    return true;
   };
 
   const startCountdownSequence = () => {
@@ -282,6 +311,7 @@ export default function StartInterviewPage() {
   const moveToNext = () => {
     speechGenRef.current += 1;
     window.speechSynthesis?.cancel();
+    cloudTtsRef.current?.cancel();
     countdownTimersRef.current.forEach(clearTimeout);
     countdownTimersRef.current = [];
     setCountdown(null);
@@ -307,6 +337,7 @@ export default function StartInterviewPage() {
     if (!questions[activeIndex] && !isFollowUpMode) return;
 
     window.speechSynthesis?.cancel();
+    cloudTtsRef.current?.cancel();
     countdownTimersRef.current.forEach(clearTimeout);
     countdownTimersRef.current = [];
     setCountdown(null);
@@ -370,35 +401,49 @@ export default function StartInterviewPage() {
           // Read the follow-up question aloud, then auto-countdown
           if (speechSupported) {
             window.speechSynthesis?.cancel();
-            // Chrome workaround: delay between cancel and speak
+            cloudTtsRef.current?.cancel();
             const gen = speechGenRef.current;
-            setTimeout(() => {
-              if (gen !== speechGenRef.current) return;
-              const text = followUp.followUpQuestion;
-              const utterance = new SpeechSynthesisUtterance(text);
-              utterance.lang = language === "ko" ? "ko-KR" : "en-US";
-              const preferredGender = getStoredVoiceGender();
-              const availableVoices =
-                voices.length > 0 ? voices : window.speechSynthesis.getVoices();
-              const selectedVoice = selectVoice(availableVoices, preferredGender, language);
-              if (selectedVoice) utterance.voice = selectedVoice;
 
-              let countdownStarted = false;
-              const triggerCountdown = () => {
-                if (countdownStarted) return;
+            if (language === "ko") {
+              speakWithCloudTts(followUp.followUpQuestion, getStoredVoiceGender()).then((handle) => {
+                if (gen !== speechGenRef.current) { handle.cancel(); return; }
+                cloudTtsRef.current = handle;
+                handle.onended = () => {
+                  if (gen !== speechGenRef.current) return;
+                  startCountdownSequence();
+                };
+              }).catch(() => {
+                if (gen === speechGenRef.current) startCountdownSequence();
+              });
+            } else {
+              // English: Chrome workaround delay between cancel and speak
+              setTimeout(() => {
                 if (gen !== speechGenRef.current) return;
-                countdownStarted = true;
-                startCountdownSequence();
-              };
+                const text = followUp.followUpQuestion;
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = "en-US";
+                const preferredGender = getStoredVoiceGender();
+                const availableVoices =
+                  voices.length > 0 ? voices : window.speechSynthesis.getVoices();
+                const voice = selectVoice(availableVoices, preferredGender, language);
+                if (voice) utterance.voice = voice;
 
-              utterance.onend = triggerCountdown;
-              utterance.onerror = triggerCountdown;
-              const msPerChar = language === "ko" ? 250 : 80;
-              const estimatedMs = Math.max(text.length * msPerChar, 3000) + 2000;
-              setTimeout(triggerCountdown, estimatedMs);
+                let countdownStarted = false;
+                const triggerCountdown = () => {
+                  if (countdownStarted) return;
+                  if (gen !== speechGenRef.current) return;
+                  countdownStarted = true;
+                  startCountdownSequence();
+                };
 
-              window.speechSynthesis.speak(utterance);
-            }, 100);
+                utterance.onend = triggerCountdown;
+                utterance.onerror = triggerCountdown;
+                const estimatedMs = Math.max(text.length * 80, 3000) + 2000;
+                setTimeout(triggerCountdown, estimatedMs);
+
+                window.speechSynthesis.speak(utterance);
+              }, 100);
+            }
           } else {
             handleTextToSpeech(followUp.followUpQuestion);
           }

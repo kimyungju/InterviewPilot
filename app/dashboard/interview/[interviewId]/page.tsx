@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getInterview } from "@/app/actions/interview";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
   loadVoices,
 } from "@/lib/voiceUtils";
 import { useTranslation } from "@/lib/i18n/LanguageContext";
+import { speakWithCloudTts, type CloudTtsHandle } from "@/lib/cloudTts";
 
 interface InterviewData {
   jobPosition: string;
@@ -32,6 +33,7 @@ export default function InterviewPage() {
   const [voiceGender, setVoiceGender] = useState<VoiceGender>("female");
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  const cloudTtsRef = useRef<CloudTtsHandle | null>(null);
   const { t, language } = useTranslation();
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function InterviewPage() {
     loadVoices().then(setVoices);
     return () => {
       window.speechSynthesis?.cancel();
+      cloudTtsRef.current?.cancel();
     };
   }, []);
 
@@ -56,13 +59,25 @@ export default function InterviewPage() {
   };
 
   const handlePreview = () => {
-    if (!("speechSynthesis" in window)) return;
-    window.speechSynthesis.cancel();
+    window.speechSynthesis?.cancel();
+    cloudTtsRef.current?.cancel();
     setPreviewPlaying(true);
+
+    if (language === "ko") {
+      speakWithCloudTts(t("setup.previewText"), voiceGender)
+        .then((handle) => {
+          cloudTtsRef.current = handle;
+          handle.onended = () => setPreviewPlaying(false);
+        })
+        .catch(() => setPreviewPlaying(false));
+      return;
+    }
+
+    if (!("speechSynthesis" in window)) { setPreviewPlaying(false); return; }
     // Chrome workaround: delay between cancel and speak
     setTimeout(() => {
       const utterance = new SpeechSynthesisUtterance(t("setup.previewText"));
-      utterance.lang = language === "ko" ? "ko-KR" : "en-US";
+      utterance.lang = "en-US";
       const voice = selectVoice(voices, voiceGender, language);
       if (voice) utterance.voice = voice;
       utterance.onend = () => setPreviewPlaying(false);
@@ -170,7 +185,7 @@ export default function InterviewPage() {
                 variant="outline"
                 size="sm"
                 onClick={handlePreview}
-                disabled={voices.length === 0 || previewPlaying}
+                disabled={(language !== "ko" && voices.length === 0) || previewPlaying}
               >
                 <Play className="mr-1.5 h-3.5 w-3.5" />
                 {previewPlaying ? t("setup.playing") : t("setup.preview")}
