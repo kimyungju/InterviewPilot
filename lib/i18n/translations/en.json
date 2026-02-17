@@ -187,6 +187,8 @@
     "suggestedAnswer": "Suggested Answer",
     "idealAnswer": "Ideal Answer",
     "feedback": "Feedback",
-    "page": "Page"
+    "page": "Page",
+    "videoRecording": "Your Recording",
+    "scanToWatch": "Scan or click to watch"
   }
 }

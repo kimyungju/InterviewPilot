@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { loadNotoSansKR } from "@/lib/fontLoader";
 
 interface AnswerData {
@@ -7,6 +8,7 @@ interface AnswerData {
   userAns: string | null;
   feedback: string | null;
   rating: string | null;
+  videoUrl?: string | null;
 }
 
 interface EnhancedFeedback {
@@ -88,6 +90,8 @@ function getLabels(language: string) {
       idealAnswer: "이상적인 답변",
       feedback: "피드백",
       page: "페이지",
+      videoRecording: "녹화 영상",
+      scanToWatch: "스캔하거나 클릭하여 시청",
     };
   }
   return {
@@ -111,6 +115,8 @@ function getLabels(language: string) {
     idealAnswer: "Ideal Answer",
     feedback: "Feedback",
     page: "Page",
+    videoRecording: "Your Recording",
+    scanToWatch: "Scan or click to watch",
   };
 }
 
@@ -265,7 +271,8 @@ export async function generatePdf(answers: AnswerData[], overallRating: string, 
   y += 24;
 
   // ── QUESTIONS ──────────────────────────────────────────
-  answers.forEach((answer, idx) => {
+  for (let idx = 0; idx < answers.length; idx++) {
+    const answer = answers[idx];
     checkPage(45);
 
     const rating = parseFloat(answer.rating || "0");
@@ -347,6 +354,50 @@ export async function generatePdf(answers: AnswerData[], overallRating: string, 
       y += 28;
     }
 
+    // Video recording QR code
+    if (answer.videoUrl) {
+      const qrBoxH = 30;
+      checkPage(qrBoxH + 3);
+
+      // Background
+      doc.setFillColor(...C.blueBg);
+      doc.roundedRect(mx, y, cw, qrBoxH, 2, 2, "F");
+
+      // Left accent bar
+      doc.setFillColor(...C.indigo);
+      doc.rect(mx, y + 3, 2.5, qrBoxH - 6, "F");
+
+      // Label
+      doc.setTextColor(...C.indigo);
+      doc.setFontSize(6.5);
+      doc.setFont(fontFamily, "bold");
+      doc.text(L.videoRecording.toUpperCase(), mx + 7, y + 5.5);
+
+      // QR code
+      const qrDataUrl = await QRCode.toDataURL(answer.videoUrl, {
+        width: 200,
+        margin: 1,
+      });
+      const qrSize = 22;
+      const qrX = mx + 7;
+      const qrY = y + 7;
+      doc.addImage(qrDataUrl, "PNG", qrX, qrY, qrSize, qrSize);
+
+      // Clickable link text
+      const linkX = qrX + qrSize + 5;
+      const linkY = qrY + qrSize / 2 + 1;
+      doc.setTextColor(...C.indigo);
+      doc.setFontSize(8);
+      doc.setFont(fontFamily, "normal");
+      doc.text(L.scanToWatch, linkX, linkY);
+
+      // Clickable overlay
+      const linkW = doc.getTextWidth(L.scanToWatch);
+      doc.link(linkX, linkY - 4, linkW, 6, { url: answer.videoUrl });
+
+      y += qrBoxH + 2.5;
+    }
+
     // Colored sections
     if (enhanced?.strengths) {
       section(L.strengths, enhanced.strengths, C.emeraldBg, C.emerald);
@@ -397,7 +448,7 @@ export async function generatePdf(answers: AnswerData[], overallRating: string, 
       doc.setLineWidth(0.2);
       y += 6;
     }
-  });
+  }
 
   addFooter();
   doc.save("interview-feedback.pdf");

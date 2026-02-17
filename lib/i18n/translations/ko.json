@@ -187,6 +187,8 @@
     "suggestedAnswer": "제안 답변",
     "idealAnswer": "이상적인 답변",
     "feedback": "피드백",
-    "page": "페이지"
+    "page": "페이지",
+    "videoRecording": "녹화 영상",
+    "scanToWatch": "스캔하거나 클릭하여 시청"
   }
 }
