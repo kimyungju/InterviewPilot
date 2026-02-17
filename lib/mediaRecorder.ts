@@ -52,7 +52,15 @@ export function createRecordingSession(
           return;
         }
 
+        const timeout = setTimeout(() => {
+          active = false;
+          chunks = [];
+          recorder = null;
+          reject(new Error("Recorder stop timed out after 5 seconds"));
+        }, 5000);
+
         recorder.onstop = () => {
+          clearTimeout(timeout);
           active = false;
           const mime = recorder?.mimeType || "video/webm";
           resolve(new Blob(chunks, { type: mime }));
