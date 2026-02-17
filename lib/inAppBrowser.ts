@@ -32,6 +32,11 @@ export function isIOS(): boolean {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+export function isSamsungBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /SamsungBrowser/i.test(navigator.userAgent);
+}
+
 export function getExternalBrowserUrl(): string | null {
   if (typeof window === "undefined") return null;
   const url = window.location.href;

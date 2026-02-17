@@ -131,6 +131,7 @@
     "stopRecording": "녹음 중지",
     "recordAnswer": "답변 녹음",
     "submitting": "제출 중...",
+    "transcribing": "답변을 변환하고 있습니다...",
     "submitFinish": "제출 및 완료",
     "submitNext": "제출 및 다음",
     "typePlaceholder": "여기에 답변을 입력하세요...",

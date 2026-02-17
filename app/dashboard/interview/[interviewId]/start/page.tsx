@@ -13,6 +13,8 @@ import Webcam from "react-webcam";
 import { getStoredVoiceGender, selectVoice, loadVoices } from "@/lib/voiceUtils";
 import { speakWithCloudTts, type CloudTtsHandle } from "@/lib/cloudTts";
 import { useTranslation } from "@/lib/i18n/LanguageContext";
+import { isAndroid, isSamsungBrowser } from "@/lib/inAppBrowser";
+import { useWhisperFallback } from "@/lib/useWhisperFallback";
 
 interface QuestionAnswer {
   question: string;
@@ -40,6 +42,8 @@ export default function StartInterviewPage() {
   const [loadingFollowUp, setLoadingFollowUp] = useState(false);
   const [parentAnswerId, setParentAnswerId] = useState<number | null>(null);
   const [difficulty, setDifficulty] = useState<string>("mid");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isRecordingRef = useRef(false);
@@ -53,6 +57,21 @@ export default function StartInterviewPage() {
   const accumulatedTextRef = useRef("");
   const sessionTextRef = useRef("");
   const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
+  const whisperWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const webSpeechWorkedRef = useRef(false);
+
+  const addDebugLog = (msg: string) => {
+    setDebugLog((prev) => [...prev.slice(-20), `[${new Date().toLocaleTimeString()}] ${msg}`]);
+  };
+
+  const whisper = useWhisperFallback({
+    language,
+    onTranscript: (text) => {
+      addDebugLog(`Whisper transcript: ${text.slice(0, 50)}...`);
+      setUserAnswer((prev) => prev ? prev + " " + text : text);
+    },
+    onTranscribing: setIsTranscribing,
+  });
 
   useEffect(() => {
     if (params.interviewId) {
@@ -80,7 +99,28 @@ export default function StartInterviewPage() {
         rec.continuous = true;
         rec.interimResults = false;
         rec.lang = language === "ko" ? "ko-KR" : "en-US";
+        rec.onstart = () => {
+          addDebugLog("WebSpeech: onstart fired");
+          if (isAndroid() && !webSpeechWorkedRef.current) {
+            addDebugLog("Android detected, starting 4s watchdog");
+            if (whisperWatchdogRef.current) clearTimeout(whisperWatchdogRef.current);
+            whisperWatchdogRef.current = setTimeout(() => {
+              if (!webSpeechWorkedRef.current && isRecordingRef.current) {
+                addDebugLog("Watchdog: WebSpeech silent for 4s, switching to Whisper");
+                try { rec.abort(); } catch {}
+                whisper.activateWhisperMode();
+                whisper.startRecording(audioTrackRef.current);
+              }
+            }, 4000);
+          }
+        };
         rec.onresult = (event: SpeechRecognitionEvent) => {
+          webSpeechWorkedRef.current = true;
+          if (whisperWatchdogRef.current) {
+            clearTimeout(whisperWatchdogRef.current);
+            whisperWatchdogRef.current = null;
+          }
+          addDebugLog("WebSpeech: onresult fired");
           restartAttemptsRef.current = 0;
           const parts: string[] = [];
           for (let i = 0; i < event.results.length; i++) {
@@ -137,8 +177,13 @@ export default function StartInterviewPage() {
       }
     }
     return () => {
+      if (whisperWatchdogRef.current) {
+        clearTimeout(whisperWatchdogRef.current);
+        whisperWatchdogRef.current = null;
+      }
       const oldRec = recognitionRef.current;
       if (oldRec) {
+        oldRec.onstart = null;
         oldRec.onresult = null;
         oldRec.onerror = null;
         oldRec.onend = null;
@@ -296,13 +341,31 @@ export default function StartInterviewPage() {
   }, [activeIndex, questions.length, speechSupported, language]);
 
   const toggleRecording = () => {
-    if (!recognition) return;
-
     window.speechSynthesis?.cancel();
     cloudTtsRef.current?.cancel();
     countdownTimersRef.current.forEach(clearTimeout);
     countdownTimersRef.current = [];
     setCountdown(null);
+
+    if (whisper.isWhisperMode) {
+      if (isRecording) {
+        addDebugLog("Whisper: stopping recording");
+        whisper.stopRecording();
+        setIsRecording(false);
+        isRecordingRef.current = false;
+        stopVideoRecording();
+      } else {
+        addDebugLog("Whisper: starting recording");
+        setUserAnswer("");
+        whisper.startRecording(audioTrackRef.current);
+        setIsRecording(true);
+        isRecordingRef.current = true;
+        startVideoRecording();
+      }
+      return;
+    }
+
+    if (!recognition) return;
 
     if (isRecording) {
       recognition.stop();
@@ -358,16 +421,25 @@ export default function StartInterviewPage() {
     const t2 = setTimeout(() => setCountdown(1), 2000);
     const t3 = setTimeout(() => {
       setCountdown(null);
-      if (!isRecordingRef.current && recognitionRef.current) {
+      if (!isRecordingRef.current) {
         setUserAnswer("");
         accumulatedTextRef.current = "";
         sessionTextRef.current = "";
         restartAttemptsRef.current = 0;
-        try {
-          recognitionRef.current.start();
-        } catch {
+
+        if (whisper.isWhisperMode) {
+          addDebugLog("Countdown: auto-start Whisper recording");
+          whisper.startRecording(audioTrackRef.current);
+        } else if (recognitionRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch {
+            return;
+          }
+        } else {
           return;
         }
+
         setIsRecording(true);
         isRecordingRef.current = true;
         startVideoRecording();
@@ -412,13 +484,23 @@ export default function StartInterviewPage() {
     countdownTimersRef.current = [];
     setCountdown(null);
 
-    if (isRecording && recognition) {
-      recognition.stop();
+    let whisperText = "";
+    if (isRecording) {
+      if (whisper.isWhisperMode) {
+        addDebugLog("Submit: stopping Whisper recording and transcribing");
+        whisperText = await whisper.stopRecording();
+      } else if (recognition) {
+        recognition.stop();
+      }
       setIsRecording(false);
       isRecordingRef.current = false;
     }
 
     const currentVideoBlob = await stopVideoRecording();
+    const finalAnswer = whisperText
+      ? (userAnswer ? userAnswer + " " + whisperText : whisperText)
+      : userAnswer;
+    if (whisperText) setUserAnswer(finalAnswer);
 
     setLoading(true);
     try {
@@ -428,7 +510,7 @@ export default function StartInterviewPage() {
           params.interviewId,
           followUpQuestion,
           "",
-          userAnswer,
+          finalAnswer,
           language,
           parentAnswerId,
           difficulty
@@ -444,7 +526,7 @@ export default function StartInterviewPage() {
           params.interviewId,
           questions[activeIndex].question,
           questions[activeIndex].answer,
-          userAnswer,
+          finalAnswer,
           language,
           null,
           difficulty
@@ -461,7 +543,7 @@ export default function StartInterviewPage() {
           const followUp = await generateFollowUpQuestion(
             questions[activeIndex].question,
             questions[activeIndex].answer,
-            userAnswer,
+            finalAnswer,
             language
           );
           setParentAnswerId(result.answerId);
@@ -634,20 +716,27 @@ export default function StartInterviewPage() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
               {t("interview.yourAnswer")}
             </p>
-            <p
-              className={
-                userAnswer
-                  ? "text-foreground leading-relaxed"
-                  : "text-muted-foreground/60 italic"
-              }
-            >
-              {userAnswer || t("interview.recordPlaceholder")}
-            </p>
+            {isTranscribing ? (
+              <p className="flex items-center gap-2 text-muted-foreground">
+                <Loader className="animate-spin h-4 w-4" />
+                {t("interview.transcribing")}
+              </p>
+            ) : (
+              <p
+                className={
+                  userAnswer
+                    ? "text-foreground leading-relaxed"
+                    : "text-muted-foreground/60 italic"
+                }
+              >
+                {userAnswer || t("interview.recordPlaceholder")}
+              </p>
+            )}
           </div>
 
           {/* Controls */}
           <div className="flex flex-col gap-3">
-            {speechSupported ? (
+            {(speechSupported || whisper.isWhisperMode) ? (
               <div className="flex gap-3">
                 <Button
                   data-testid="record-button"
@@ -673,9 +762,9 @@ export default function StartInterviewPage() {
                 <Button
                   data-testid="submit-answer-button"
                   onClick={handleSubmitAnswer}
-                  disabled={loading || loadingFollowUp || !userAnswer}
+                  disabled={loading || loadingFollowUp || isTranscribing || (!userAnswer && !isRecording)}
                 >
-                  {loading ? (
+                  {loading || isTranscribing ? (
                     <>
                       <Loader className="animate-spin mr-2 h-4 w-4" />{" "}
                       {t("interview.submitting")}
@@ -752,6 +841,20 @@ export default function StartInterviewPage() {
         </div>
       </div>
 
+      {/* Debug overlay for Android devices */}
+      {typeof window !== "undefined" && isAndroid() && (
+        <div className="fixed bottom-0 left-0 right-0 bg-black/80 text-green-400 text-xs p-2 max-h-32 overflow-y-auto font-mono z-50">
+          <div className="font-bold mb-1">
+            [Debug] Mode: {whisper.isWhisperMode ? "Whisper" : "WebSpeech"}
+            {" | "}Samsung: {isSamsungBrowser() ? "Yes" : "No"}
+            {" | "}Recording: {isRecording ? "Yes" : "No"}
+            {" | "}Transcribing: {isTranscribing ? "Yes" : "No"}
+          </div>
+          {debugLog.map((log, i) => (
+            <div key={i}>{log}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
