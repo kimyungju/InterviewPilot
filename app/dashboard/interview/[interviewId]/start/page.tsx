@@ -411,7 +411,7 @@ export default function StartInterviewPage() {
 
           {/* Current Question */}
           <div className="p-6 rounded-xl border bg-card">
-            <h3 className="text-lg font-medium leading-relaxed">
+            <h3 data-testid="question-text" className="text-lg font-medium leading-relaxed">
               {questions[activeIndex].question}
             </h3>
             <Button
@@ -475,6 +475,7 @@ export default function StartInterviewPage() {
             {speechSupported ? (
               <div className="flex gap-3">
                 <Button
+                  data-testid="record-button"
                   variant={isRecording ? "destructive" : "default"}
                   onClick={toggleRecording}
                   disabled={countdown !== null}
@@ -495,6 +496,7 @@ export default function StartInterviewPage() {
                 </Button>
 
                 <Button
+                  data-testid="submit-answer-button"
                   onClick={handleSubmitAnswer}
                   disabled={loading || loadingFollowUp || !userAnswer}
                 >
@@ -521,6 +523,7 @@ export default function StartInterviewPage() {
             ) : (
               <div className="flex flex-col gap-3">
                 <Textarea
+                  data-testid="answer-textarea"
                   placeholder={t("interview.typePlaceholder")}
                   value={userAnswer}
                   onChange={(e) => setUserAnswer(e.target.value)}

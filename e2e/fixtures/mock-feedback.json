@@ -1,0 +1,15 @@
+{
+  "rating": 4,
+  "competencies": {
+    "technicalKnowledge": 4,
+    "communicationClarity": 4,
+    "problemSolving": 3,
+    "relevance": 4
+  },
+  "strengths": "Good understanding of core concepts with clear articulation of key points.",
+  "praise": "You correctly identified the main trade-offs and demonstrated solid knowledge of the fundamentals.",
+  "correction": "Consider elaborating on specific real-world scenarios where you have applied these concepts to strengthen your answer.",
+  "actionableTip": "Use the phrase 'In my experience with [specific project]...' to ground your answers with concrete examples.",
+  "improvements": "Consider elaborating on specific real-world scenarios where you have applied these concepts to strengthen your answer.",
+  "suggestedAnswer": "A strong answer would cover the core concept, provide a real-world example from personal experience, and discuss both the benefits and potential drawbacks of the approach."
+}

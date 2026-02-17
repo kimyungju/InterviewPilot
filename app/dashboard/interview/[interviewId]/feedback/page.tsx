@@ -188,6 +188,7 @@ export default function FeedbackPage() {
           </span>
         </div>
         <div
+          data-testid="overall-rating"
           className={`text-4xl font-bold font-display ${getRatingColor(ratingNum)}`}
         >
           {overallRating}
@@ -203,7 +204,7 @@ export default function FeedbackPage() {
 
           return (
             <Collapsible key={answer.id}>
-              <CollapsibleTrigger className="flex items-center justify-between w-full p-4 rounded-xl bg-card border hover:bg-accent/50 text-left transition-colors duration-200 group">
+              <CollapsibleTrigger data-testid="feedback-question" className="flex items-center justify-between w-full p-4 rounded-xl bg-card border hover:bg-accent/50 text-left transition-colors duration-200 group">
                 <div className="flex items-center gap-3">
                   <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 text-primary text-sm font-bold shrink-0">
                     {index + 1}
@@ -402,6 +403,7 @@ export default function FeedbackPage() {
 
       <div className="mt-10 flex justify-center gap-3">
         <Button
+          data-testid="back-to-dashboard"
           variant="outline"
           className="rounded-xl"
           onClick={() => router.push("/dashboard")}

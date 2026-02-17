@@ -71,7 +71,7 @@ export default function DashboardPage() {
   return (
     <div className="py-12">
       <div className="mb-8">
-        <h2 className="font-bold text-3xl font-display tracking-tight">
+        <h2 data-testid="dashboard-title" className="font-bold text-3xl font-display tracking-tight">
           {t("dashboard.title")}
         </h2>
         <p className="text-muted-foreground mt-1.5">
@@ -96,7 +96,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div data-testid="interview-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         <AddNewInterview />
         {filteredInterviews.map((interview) => (
           <InterviewCard

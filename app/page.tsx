@@ -24,7 +24,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-3">
           <LanguageSwitcher />
-          <Link href="/dashboard">
+          <Link href="/dashboard" data-testid="nav-sign-in">
             <Button variant="outline" size="sm">{t("landing.signIn")}</Button>
           </Link>
         </div>
@@ -35,13 +35,13 @@ export default function Home() {
           <p className="text-sm font-medium tracking-[0.2em] uppercase text-muted-foreground mb-6">
             {t("landing.subtitle")}
           </p>
-          <h1 className="font-display text-5xl md:text-6xl lg:text-7xl leading-[1.1] tracking-tight">
+          <h1 data-testid="hero-title" className="font-display text-5xl md:text-6xl lg:text-7xl leading-[1.1] tracking-tight">
             {t("landing.heroTitle")}
           </h1>
           <p className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-lg">
             {t("landing.heroDesc")}
           </p>
-          <Link href="/dashboard" className="inline-block mt-10">
+          <Link href="/dashboard" className="inline-block mt-10" data-testid="hero-cta">
             <Button size="lg" className="text-base px-7 py-5 rounded-lg">
               {t("landing.cta")} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>

@@ -1,0 +1,22 @@
+[
+  {
+    "question": "What is the difference between REST and GraphQL APIs, and when would you choose one over the other?",
+    "answer": "REST uses resource-based URLs with standard HTTP methods and returns fixed data structures. GraphQL uses a single endpoint where clients specify exactly what data they need. Choose REST for simple CRUD operations with well-defined resources, and GraphQL when clients need flexible data fetching or when you want to reduce over-fetching and under-fetching of data."
+  },
+  {
+    "question": "Explain how you would implement authentication in a web application. What are the key security considerations?",
+    "answer": "I would implement authentication using JWTs or session-based auth with secure cookies. Key considerations include: using HTTPS, hashing passwords with bcrypt, implementing CSRF protection, setting secure and httpOnly cookie flags, adding rate limiting to prevent brute force attacks, and implementing proper session invalidation on logout."
+  },
+  {
+    "question": "Describe the concept of database indexing. When should you add an index and what are the trade-offs?",
+    "answer": "Database indexing creates a data structure that improves the speed of data retrieval operations. You should add indexes on columns frequently used in WHERE clauses, JOIN conditions, and ORDER BY clauses. Trade-offs include: increased storage space, slower write operations (INSERT, UPDATE, DELETE) since indexes must be updated, and the need for periodic maintenance."
+  },
+  {
+    "question": "How do you handle error handling and logging in a production application?",
+    "answer": "I implement a layered error handling strategy: use try-catch blocks at appropriate levels, create custom error classes for different error types, implement global error handlers/middleware, and use structured logging with different log levels. For production, I use centralized logging services, set up error monitoring and alerting, and ensure sensitive information is never logged."
+  },
+  {
+    "question": "What is your approach to writing testable code? Give an example of how you would refactor tightly-coupled code.",
+    "answer": "I follow SOLID principles, particularly dependency injection and single responsibility. For example, if a function directly calls a database and an API, I would extract those dependencies into interfaces/parameters that can be mocked during testing. This allows unit testing without real infrastructure, making tests faster and more reliable."
+  }
+]

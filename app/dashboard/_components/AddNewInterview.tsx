@@ -288,7 +288,7 @@ export default function AddNewInterview() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <div className="group flex flex-col items-center justify-center gap-3 p-10 rounded-xl border-2 border-dashed border-border hover:border-primary/40 bg-accent/30 hover:bg-accent/60 cursor-pointer transition-all duration-300">
+        <div data-testid="add-new-interview" className="group flex flex-col items-center justify-center gap-3 p-10 rounded-xl border-2 border-dashed border-border hover:border-primary/40 bg-accent/30 hover:bg-accent/60 cursor-pointer transition-all duration-300">
           <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors duration-300">
             <Plus className="h-6 w-6 text-primary" />
           </div>
@@ -310,6 +310,7 @@ export default function AddNewInterview() {
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 mt-4">
               <button
+                data-testid="mode-auto"
                 onClick={() => handleModeSelect("auto")}
                 className="flex flex-col items-center gap-3 p-6 rounded-xl border-2 border-border hover:border-primary/40 bg-accent/30 hover:bg-accent/60 cursor-pointer transition-all duration-300 text-center"
               >
@@ -631,6 +632,7 @@ export default function AddNewInterview() {
                     {t("create.skip")}
                   </Button>
                   <Button
+                    data-testid="start-interview-button"
                     type="button"
                     onClick={() => handleSubmit()}
                     disabled={loading || extracting}

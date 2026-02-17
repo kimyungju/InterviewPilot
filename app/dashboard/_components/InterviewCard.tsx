@@ -50,7 +50,7 @@ export default function InterviewCard({
   const diff = difficulty || "mid";
 
   return (
-    <div className="group relative p-5 rounded-xl border border-border bg-card hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300">
+    <div data-testid="interview-card" className="group relative p-5 rounded-xl border border-border bg-card hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 transition-all duration-300">
       <button
         onClick={handleDelete}
         disabled={deleting}
@@ -58,7 +58,7 @@ export default function InterviewCard({
       >
         <Trash2 className="h-4 w-4" />
       </button>
-      <h2 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors duration-300 pr-8">
+      <h2 data-testid="card-job-position" className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors duration-300 pr-8">
         {jobPosition}
       </h2>
       <div className="flex flex-wrap items-center gap-1.5 mt-2">
@@ -78,12 +78,12 @@ export default function InterviewCard({
         <span>{createdAt ? new Date(createdAt).toLocaleDateString(language === "ko" ? "ko-KR" : "en-US") : t("card.na")}</span>
       </div>
       <div className="flex gap-3 mt-5">
-        <Link href={`/dashboard/interview/${mockId}/feedback`}>
+        <Link href={`/dashboard/interview/${mockId}/feedback`} data-testid="card-feedback-link">
           <Button size="sm" variant="outline" className="rounded-lg">
             {t("card.feedback")}
           </Button>
         </Link>
-        <Link href={`/dashboard/interview/${mockId}`}>
+        <Link href={`/dashboard/interview/${mockId}`} data-testid="card-start-link">
           <Button size="sm" className="rounded-lg">{t("card.start")}</Button>
         </Link>
       </div>

@@ -95,7 +95,7 @@ export default function InterviewPage() {
             <div className="space-y-3">
               <div>
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("setup.position")}</span>
-                <p className="text-lg font-semibold mt-0.5">{interview.jobPosition}</p>
+                <p data-testid="setup-position" className="text-lg font-semibold mt-0.5">{interview.jobPosition}</p>
               </div>
               {interview.jobDesc && (
                 <div>
@@ -195,6 +195,7 @@ export default function InterviewPage() {
           )}
 
           <Button
+            data-testid="start-interview-button"
             size="lg"
             className="w-full rounded-xl py-6 text-base"
             onClick={() => router.push(`/dashboard/interview/${params.interviewId}/start`)}
