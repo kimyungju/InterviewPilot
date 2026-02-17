@@ -1,4 +1,3 @@
-import { generateSpeech } from "@/app/actions/speech";
 import type { VoiceGender } from "@/lib/voiceUtils";
 
 export interface CloudTtsHandle {
@@ -11,8 +10,13 @@ export async function speakWithCloudTts(
   gender: VoiceGender
 ): Promise<CloudTtsHandle> {
   const voice = gender === "male" ? "onyx" : "nova";
-  const dataUrl = await generateSpeech(text, voice);
-  const audio = new Audio(dataUrl);
+  const response = await fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, voice }),
+  });
+  const blob = await response.blob();
+  const audio = new Audio(URL.createObjectURL(blob));
 
   const handle: CloudTtsHandle = {
     onended: null,

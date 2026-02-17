@@ -65,6 +65,7 @@ export default function StartInterviewPage() {
   const restartAttemptsRef = useRef(0);
   const accumulatedTextRef = useRef("");
   const sessionTextRef = useRef("");
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
     if (params.interviewId) {
@@ -163,7 +164,7 @@ export default function StartInterviewPage() {
   }, [language]);
 
   useEffect(() => {
-    loadVoices().then(setVoices);
+    loadVoices().then((v) => { setVoices(v); voicesRef.current = v; });
   }, []);
 
   // Acquire mic-only audio track for video recording (with echo cancellation)
@@ -294,7 +295,7 @@ export default function StartInterviewPage() {
       utterance.lang = "en-US";
       const preferredGender = getStoredVoiceGender();
       const availableVoices =
-        voices.length > 0 ? voices : window.speechSynthesis.getVoices();
+        voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
       const voice = selectVoice(availableVoices, preferredGender, language);
       if (voice) utterance.voice = voice;
 
@@ -323,7 +324,8 @@ export default function StartInterviewPage() {
       countdownTimersRef.current = [];
       window.speechSynthesis?.cancel();
     };
-  }, [activeIndex, questions.length, speechSupported, language, voices]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, questions.length, speechSupported, language]);
 
   const toggleRecording = () => {
     if (!recognition) return;
@@ -376,7 +378,7 @@ export default function StartInterviewPage() {
       utterance.lang = "en-US";
       const preferredGender = getStoredVoiceGender();
       const availableVoices =
-        voices.length > 0 ? voices : window.speechSynthesis.getVoices();
+        voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
       const voice = selectVoice(availableVoices, preferredGender, language);
       if (voice) utterance.voice = voice;
       window.speechSynthesis.speak(utterance);
@@ -531,7 +533,7 @@ export default function StartInterviewPage() {
                 utterance.lang = "en-US";
                 const preferredGender = getStoredVoiceGender();
                 const availableVoices =
-                  voices.length > 0 ? voices : window.speechSynthesis.getVoices();
+                  voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
                 const voice = selectVoice(availableVoices, preferredGender, language);
                 if (voice) utterance.voice = voice;
 
