@@ -41,19 +41,6 @@ export default function StartInterviewPage() {
   const [parentAnswerId, setParentAnswerId] = useState<number | null>(null);
   const [difficulty, setDifficulty] = useState<string>("mid");
 
-  // DEBUG OVERLAY — remove after mobile debugging
-  const [debugInfo, setDebugInfo] = useState({
-    recStatus: "idle",
-    lastEvent: "-",
-    lastError: "-",
-    restartCount: 0,
-    micTracks: 0,
-    audioCtxState: "N/A",
-  });
-  const dbg = (patch: Partial<typeof debugInfo>) =>
-    setDebugInfo((prev) => ({ ...prev, ...patch }));
-  const ts = () => new Date().toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const isRecordingRef = useRef(false);
   const countdownTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -106,10 +93,8 @@ export default function StartInterviewPage() {
               ? accumulatedTextRef.current + " " + sessionText
               : sessionText
           );
-          dbg({ recStatus: "result", lastEvent: `onresult ${ts()} (${event.results.length} results)` });
         };
         rec.onerror = (event: SpeechRecognitionErrorEvent) => {
-          dbg({ recStatus: "error", lastError: event.error, lastEvent: `onerror ${ts()} [${event.error}]` });
           const fatalErrors = ["not-allowed", "audio-capture", "network", "service-not-allowed"];
           if (fatalErrors.includes(event.error)) {
             setIsRecording(false);
@@ -119,7 +104,6 @@ export default function StartInterviewPage() {
           // Recoverable errors (no-speech, aborted): onend handler will auto-restart
         };
         rec.onend = () => {
-          dbg({ recStatus: "ended", lastEvent: `onend ${ts()} (recording=${isRecordingRef.current}, retries=${restartAttemptsRef.current})`, restartCount: restartAttemptsRef.current });
           if (isRecordingRef.current) {
             // Preserve transcript from this session before restarting
             if (sessionTextRef.current) {
@@ -196,22 +180,6 @@ export default function StartInterviewPage() {
     };
   }, []);
 
-  // DEBUG: poll AudioContext state + mic track status
-  useEffect(() => {
-    const id = setInterval(() => {
-      let ctxState = "N/A";
-      try {
-        const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-        ctxState = ctx.state;
-        ctx.close();
-      } catch {}
-      const track = audioTrackRef.current;
-      const micInfo = track ? (track.readyState === "live" ? 1 : 0) : 0;
-      dbg({ audioCtxState: ctxState, micTracks: micInfo });
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
-
   const uploadAndLinkVideo = (blob: Blob, answerId: number) => {
     uploadVideoBlob(blob, params.interviewId, answerId)
       .then((url) => { if (url) updateVideoUrl(answerId, url).catch(console.error); })
@@ -267,32 +235,12 @@ export default function StartInterviewPage() {
     const gen = speechGenRef.current;
     const text = questions[activeIndex].question;
 
-    if (language === "ko") {
-      const preferredGender = getStoredVoiceGender();
-      speakWithCloudTts(text, preferredGender).then((handle) => {
-        if (gen !== speechGenRef.current) { handle.cancel(); return; }
-        cloudTtsRef.current = handle;
-        handle.onended = () => {
-          if (gen !== speechGenRef.current) return;
-          startCountdownSequence();
-        };
-      }).catch(() => {
-        if (gen === speechGenRef.current) startCountdownSequence();
-      });
-
-      return () => {
-        countdownTimersRef.current.forEach(clearTimeout);
-        countdownTimersRef.current = [];
-        cloudTtsRef.current?.cancel();
-      };
-    }
-
-    // English: use Web Speech API with Chrome cancel/speak workaround
+    // Use Web Speech API for all languages (Chrome cancel/speak workaround)
     let fallbackTimer: ReturnType<typeof setTimeout>;
     const speakTimer = setTimeout(() => {
       if (gen !== speechGenRef.current) return;
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
+      utterance.lang = language === "ko" ? "ko-KR" : "en-US";
       const preferredGender = getStoredVoiceGender();
       const availableVoices =
         voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
@@ -341,7 +289,6 @@ export default function StartInterviewPage() {
       setIsRecording(false);
       isRecordingRef.current = false;
       stopVideoRecording(); // discard blob — user toggled off manually
-      dbg({ recStatus: "stopped", lastEvent: `manual-stop ${ts()}` });
     } else {
       setUserAnswer("");
       accumulatedTextRef.current = "";
@@ -349,14 +296,12 @@ export default function StartInterviewPage() {
       restartAttemptsRef.current = 0;
       try {
         recognition.start();
-      } catch (e) {
-        dbg({ recStatus: "error", lastError: `start() threw: ${e}`, lastEvent: `manual-start-fail ${ts()}` });
+      } catch {
         return;
       }
       setIsRecording(true);
       isRecordingRef.current = true;
       startVideoRecording();
-      dbg({ recStatus: "started", lastEvent: `manual-start ${ts()}` });
     }
   };
 
@@ -400,14 +345,12 @@ export default function StartInterviewPage() {
         restartAttemptsRef.current = 0;
         try {
           recognitionRef.current.start();
-        } catch (e) {
-          dbg({ recStatus: "error", lastError: `auto-start() threw: ${e}`, lastEvent: `auto-start-fail ${ts()}` });
+        } catch {
           return;
         }
         setIsRecording(true);
         isRecordingRef.current = true;
         startVideoRecording();
-        dbg({ recStatus: "started", lastEvent: `auto-start ${ts()}` });
       }
     }, 3000);
     countdownTimersRef.current = [t1, t2, t3];
@@ -513,46 +456,32 @@ export default function StartInterviewPage() {
             cloudTtsRef.current?.cancel();
             const gen = speechGenRef.current;
 
-            if (language === "ko") {
-              speakWithCloudTts(followUp.followUpQuestion, getStoredVoiceGender()).then((handle) => {
-                if (gen !== speechGenRef.current) { handle.cancel(); return; }
-                cloudTtsRef.current = handle;
-                handle.onended = () => {
-                  if (gen !== speechGenRef.current) return;
-                  startCountdownSequence();
-                };
-              }).catch(() => {
-                if (gen === speechGenRef.current) startCountdownSequence();
-              });
-            } else {
-              // English: Chrome workaround delay between cancel and speak
-              setTimeout(() => {
+            setTimeout(() => {
+              if (gen !== speechGenRef.current) return;
+              const text = followUp.followUpQuestion;
+              const utterance = new SpeechSynthesisUtterance(text);
+              utterance.lang = language === "ko" ? "ko-KR" : "en-US";
+              const preferredGender = getStoredVoiceGender();
+              const availableVoices =
+                voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
+              const voice = selectVoice(availableVoices, preferredGender, language);
+              if (voice) utterance.voice = voice;
+
+              let countdownStarted = false;
+              const triggerCountdown = () => {
+                if (countdownStarted) return;
                 if (gen !== speechGenRef.current) return;
-                const text = followUp.followUpQuestion;
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = "en-US";
-                const preferredGender = getStoredVoiceGender();
-                const availableVoices =
-                  voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
-                const voice = selectVoice(availableVoices, preferredGender, language);
-                if (voice) utterance.voice = voice;
+                countdownStarted = true;
+                startCountdownSequence();
+              };
 
-                let countdownStarted = false;
-                const triggerCountdown = () => {
-                  if (countdownStarted) return;
-                  if (gen !== speechGenRef.current) return;
-                  countdownStarted = true;
-                  startCountdownSequence();
-                };
+              utterance.onend = triggerCountdown;
+              utterance.onerror = triggerCountdown;
+              const estimatedMs = Math.max(text.length * 80, 3000) + 2000;
+              setTimeout(triggerCountdown, estimatedMs);
 
-                utterance.onend = triggerCountdown;
-                utterance.onerror = triggerCountdown;
-                const estimatedMs = Math.max(text.length * 80, 3000) + 2000;
-                setTimeout(triggerCountdown, estimatedMs);
-
-                window.speechSynthesis.speak(utterance);
-              }, 100);
-            }
+              window.speechSynthesis.speak(utterance);
+            }, 100);
           } else {
             handleTextToSpeech(followUp.followUpQuestion);
           }
@@ -790,29 +719,6 @@ export default function StartInterviewPage() {
         </div>
       </div>
 
-      {/* DEBUG OVERLAY — remove after mobile debugging */}
-      <div style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        zIndex: 9999,
-        background: "rgba(0,0,0,0.85)",
-        color: "#0f0",
-        fontFamily: "monospace",
-        fontSize: "11px",
-        padding: "8px 12px",
-        lineHeight: 1.4,
-        maxHeight: "30vh",
-        overflowY: "auto",
-        pointerEvents: "none",
-      }}>
-        <div>rec: {debugInfo.recStatus} | restarts: {debugInfo.restartCount}</div>
-        <div>last: {debugInfo.lastEvent}</div>
-        <div>err: {debugInfo.lastError}</div>
-        <div>mic: {debugInfo.micTracks} | audioCtx: {debugInfo.audioCtxState}</div>
-        <div>accum: {accumulatedTextRef.current.length}ch | session: {sessionTextRef.current.length}ch</div>
-      </div>
     </div>
   );
 }

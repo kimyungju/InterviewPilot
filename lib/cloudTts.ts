@@ -15,6 +15,7 @@ export async function speakWithCloudTts(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text, voice }),
   });
+  if (!response.ok) throw new Error(`TTS API error: ${response.status}`);
   const blob = await response.blob();
   const audio = new Audio(URL.createObjectURL(blob));
 

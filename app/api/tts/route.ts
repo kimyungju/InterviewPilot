@@ -7,14 +7,22 @@ const openai = new OpenAI({
 });
 
 export async function POST(req: NextRequest) {
-  const { text, voice } = await req.json();
-  const response = await openai.audio.speech.create({
-    model: "tts-1",
-    voice: voice || "nova",
-    input: text || "",
-    response_format: "mp3",
-  });
-  return new Response(response.body as ReadableStream, {
-    headers: { "Content-Type": "audio/mpeg" },
-  });
+  try {
+    const { text, voice } = await req.json();
+    const response = await openai.audio.speech.create({
+      model: "tts-1",
+      voice: voice || "nova",
+      input: text || "",
+      response_format: "mp3",
+    });
+    const buffer = await response.arrayBuffer();
+    return new Response(buffer, {
+      headers: { "Content-Type": "audio/mpeg" },
+    });
+  } catch {
+    return new Response(JSON.stringify({ error: "TTS generation failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
