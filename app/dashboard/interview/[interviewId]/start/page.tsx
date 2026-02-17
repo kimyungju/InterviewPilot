@@ -46,6 +46,7 @@ export default function StartInterviewPage() {
   const webcamRef = useRef<Webcam>(null);
   const recordingSessionRef = useRef<RecordingSession | null>(null);
   const audioTrackRef = useRef<MediaStreamTrack | null>(null);
+  const speechGenRef = useRef(0);
 
   useEffect(() => {
     if (params.interviewId) {
@@ -177,8 +178,10 @@ export default function StartInterviewPage() {
 
     // Chrome bug workaround: cancel() followed immediately by speak() silently
     // swallows the speech. Adding a 100ms delay between cancel and speak fixes it.
+    const gen = speechGenRef.current;
     let fallbackTimer: ReturnType<typeof setTimeout>;
     const speakTimer = setTimeout(() => {
+      if (gen !== speechGenRef.current) return;
       const text = questions[activeIndex].question;
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = language === "ko" ? "ko-KR" : "en-US";
@@ -191,6 +194,7 @@ export default function StartInterviewPage() {
       let countdownStarted = false;
       const triggerCountdown = () => {
         if (countdownStarted) return;
+        if (gen !== speechGenRef.current) return;
         countdownStarted = true;
         clearTimeout(fallbackTimer);
         startCountdownSequence();
@@ -274,6 +278,7 @@ export default function StartInterviewPage() {
   };
 
   const moveToNext = () => {
+    speechGenRef.current += 1;
     window.speechSynthesis?.cancel();
     countdownTimersRef.current.forEach(clearTimeout);
     countdownTimersRef.current = [];
@@ -364,7 +369,9 @@ export default function StartInterviewPage() {
           if (speechSupported) {
             window.speechSynthesis?.cancel();
             // Chrome workaround: delay between cancel and speak
+            const gen = speechGenRef.current;
             setTimeout(() => {
+              if (gen !== speechGenRef.current) return;
               const text = followUp.followUpQuestion;
               const utterance = new SpeechSynthesisUtterance(text);
               utterance.lang = language === "ko" ? "ko-KR" : "en-US";
@@ -377,6 +384,7 @@ export default function StartInterviewPage() {
               let countdownStarted = false;
               const triggerCountdown = () => {
                 if (countdownStarted) return;
+                if (gen !== speechGenRef.current) return;
                 countdownStarted = true;
                 startCountdownSequence();
               };
