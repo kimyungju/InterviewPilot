@@ -122,15 +122,25 @@ export default function StartInterviewPage() {
     };
   }, []);
 
+  const uploadAndLinkVideo = (blob: Blob, answerId: number) => {
+    uploadVideoBlob(blob, params.interviewId, answerId)
+      .then((url) => { if (url) updateVideoUrl(answerId, url).catch(console.error); })
+      .catch(console.error);
+  };
+
   const startVideoRecording = () => {
     try {
+      recordingSessionRef.current?.cleanup();
       const video = webcamRef.current?.video;
       if (!video?.srcObject) return;
       const videoTrack = (video.srcObject as MediaStream).getVideoTracks()[0];
       if (!videoTrack) return;
 
       const audioTrack = audioTrackRef.current;
-      if (!audioTrack) return;
+      if (!audioTrack) {
+        console.warn("No audio track available, skipping video recording");
+        return;
+      }
 
       const session = createRecordingSession(videoTrack, audioTrack);
       session.start();
@@ -290,9 +300,7 @@ export default function StartInterviewPage() {
         moveToNext();
 
         if (currentVideoBlob) {
-          uploadVideoBlob(currentVideoBlob, params.interviewId, followUpResult.answerId)
-            .then((url) => { if (url) updateVideoUrl(followUpResult.answerId, url).catch(console.error); })
-            .catch(console.error);
+          uploadAndLinkVideo(currentVideoBlob, followUpResult.answerId);
         }
       } else {
         // Submit main answer
@@ -308,9 +316,7 @@ export default function StartInterviewPage() {
 
         // Fire-and-forget video upload for main answer
         if (currentVideoBlob) {
-          uploadVideoBlob(currentVideoBlob, params.interviewId, result.answerId)
-            .then((url) => { if (url) updateVideoUrl(result.answerId, url).catch(console.error); })
-            .catch(console.error);
+          uploadAndLinkVideo(currentVideoBlob, result.answerId);
         }
 
         // Generate follow-up question
