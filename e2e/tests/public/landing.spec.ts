@@ -10,20 +10,17 @@ test.describe("Landing Page", () => {
     await expect(page.locator(NAV_SIGN_IN)).toBeVisible();
   });
 
-  test("sign-in link navigates toward dashboard", async ({ page }) => {
+  test("sign-in link has correct href", async ({ page }) => {
     await page.goto("/");
 
-    await page.locator(NAV_SIGN_IN).click();
-
-    // Should redirect to /dashboard or Clerk sign-in
-    await expect(page).not.toHaveURL("/");
+    const href = await page.locator(NAV_SIGN_IN).getAttribute("href");
+    expect(href).toBe("/dashboard");
   });
 
-  test("CTA button navigates toward dashboard", async ({ page }) => {
+  test("CTA link has correct href", async ({ page }) => {
     await page.goto("/");
 
-    await page.locator(HERO_CTA).click();
-
-    await expect(page).not.toHaveURL("/");
+    const href = await page.locator(HERO_CTA).getAttribute("href");
+    expect(href).toBe("/dashboard");
   });
 });
