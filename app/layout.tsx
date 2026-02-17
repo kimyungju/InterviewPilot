@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider>
       <html suppressHydrationWarning>
         <body className={`${libreBaskerville.variable} ${karla.variable} ${geistMono.variable} ${notoSansKr.variable} antialiased`}>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <LanguageProvider>
               {children}
             </LanguageProvider>
