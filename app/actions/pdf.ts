@@ -1,7 +1,5 @@
 "use server";
 
-import { PDFParse } from "pdf-parse";
-
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function extractTextFromPdf(
@@ -21,6 +19,7 @@ export async function extractTextFromPdf(
     throw new Error("File is too large. Maximum size is 5MB.");
   }
 
+  const { PDFParse } = await import("pdf-parse");
   const data = new Uint8Array(await file.arrayBuffer());
   const parser = new PDFParse({ data });
   const result = await parser.getText();
