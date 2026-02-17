@@ -196,10 +196,21 @@ export async function updateVideoUrl(answerId: number, videoUrl: string) {
   if (!user?.emailAddresses?.[0]?.emailAddress) {
     throw new Error("Unauthorized");
   }
+  const userEmail = user.emailAddresses[0].emailAddress;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error("Supabase URL is not configured");
+  }
+  const allowedPrefix = `${supabaseUrl}/storage/`;
+  if (!videoUrl.startsWith(allowedPrefix)) {
+    throw new Error("Invalid video URL");
+  }
+
   await db
     .update(UserAnswer)
     .set({ videoUrl })
-    .where(eq(UserAnswer.id, answerId));
+    .where(and(eq(UserAnswer.id, answerId), eq(UserAnswer.userEmail, userEmail)));
 }
 
 export async function getAnswers(mockIdRef: string) {
