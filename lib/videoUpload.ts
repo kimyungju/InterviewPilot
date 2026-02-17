@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { getSupabase } from "@/lib/supabaseClient";
 
 export async function uploadVideoBlob(
   blob: Blob,
@@ -6,6 +6,7 @@ export async function uploadVideoBlob(
   answerId: number
 ): Promise<string | null> {
   try {
+    const supabase = getSupabase();
     const path = `${mockIdRef}/${answerId}.webm`;
     const { error } = await supabase.storage
       .from("interview-videos")
