@@ -50,6 +50,8 @@ export default function StartInterviewPage() {
   const speechGenRef = useRef(0);
   const cloudTtsRef = useRef<CloudTtsHandle | null>(null);
   const restartAttemptsRef = useRef(0);
+  const accumulatedTextRef = useRef("");
+  const sessionTextRef = useRef("");
 
   useEffect(() => {
     if (params.interviewId) {
@@ -83,7 +85,13 @@ export default function StartInterviewPage() {
           for (let i = 0; i < event.results.length; i++) {
             parts.push(event.results[i][0].transcript);
           }
-          setUserAnswer(parts.join(" "));
+          const sessionText = parts.join(" ");
+          sessionTextRef.current = sessionText;
+          setUserAnswer(
+            accumulatedTextRef.current
+              ? accumulatedTextRef.current + " " + sessionText
+              : sessionText
+          );
         };
         rec.onerror = (event: SpeechRecognitionErrorEvent) => {
           const fatalErrors = ["not-allowed", "audio-capture", "network", "service-not-allowed"];
@@ -96,6 +104,13 @@ export default function StartInterviewPage() {
         };
         rec.onend = () => {
           if (isRecordingRef.current) {
+            // Preserve transcript from this session before restarting
+            if (sessionTextRef.current) {
+              accumulatedTextRef.current = accumulatedTextRef.current
+                ? accumulatedTextRef.current + " " + sessionTextRef.current
+                : sessionTextRef.current;
+              sessionTextRef.current = "";
+            }
             if (restartAttemptsRef.current < 5) {
               restartAttemptsRef.current += 1;
               setTimeout(() => {
@@ -120,6 +135,15 @@ export default function StartInterviewPage() {
         recognitionRef.current = rec;
       }
     }
+    return () => {
+      const oldRec = recognitionRef.current;
+      if (oldRec) {
+        oldRec.onresult = null;
+        oldRec.onerror = null;
+        oldRec.onend = null;
+        try { oldRec.abort(); } catch {}
+      }
+    };
   }, [language]);
 
   useEffect(() => {
@@ -285,8 +309,14 @@ export default function StartInterviewPage() {
       stopVideoRecording(); // discard blob — user toggled off manually
     } else {
       setUserAnswer("");
+      accumulatedTextRef.current = "";
+      sessionTextRef.current = "";
       restartAttemptsRef.current = 0;
-      recognition.start();
+      try {
+        recognition.start();
+      } catch {
+        return;
+      }
       setIsRecording(true);
       isRecordingRef.current = true;
       startVideoRecording();
@@ -328,8 +358,14 @@ export default function StartInterviewPage() {
       setCountdown(null);
       if (!isRecordingRef.current && recognitionRef.current) {
         setUserAnswer("");
+        accumulatedTextRef.current = "";
+        sessionTextRef.current = "";
         restartAttemptsRef.current = 0;
-        recognitionRef.current.start();
+        try {
+          recognitionRef.current.start();
+        } catch {
+          return;
+        }
         setIsRecording(true);
         isRecordingRef.current = true;
         startVideoRecording();
@@ -354,6 +390,8 @@ export default function StartInterviewPage() {
     if (activeIndex < questions.length - 1) {
       setActiveIndex((prev) => prev + 1);
       setUserAnswer("");
+      accumulatedTextRef.current = "";
+      sessionTextRef.current = "";
     } else {
       router.push(`/dashboard/interview/${params.interviewId}/feedback`);
     }
@@ -428,6 +466,8 @@ export default function StartInterviewPage() {
           setFollowUpQuestion(followUp.followUpQuestion);
           setIsFollowUpMode(true);
           setUserAnswer("");
+          accumulatedTextRef.current = "";
+          sessionTextRef.current = "";
           // Read the follow-up question aloud, then auto-countdown
           if (speechSupported) {
             window.speechSynthesis?.cancel();
