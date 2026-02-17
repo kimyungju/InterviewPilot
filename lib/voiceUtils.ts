@@ -15,7 +15,7 @@ const MALE_NAMES = [
 ];
 
 const KOREAN_FEMALE_NAMES = [
-  "sun-hi", "yuna", "jihye", "sora", "minji", "heami",
+  "sunhi", "yuna", "jihye", "sora", "minji", "heami",
   "korean female", "여성",
 ];
 

@@ -204,7 +204,9 @@ export default function StartInterviewPage() {
       utterance.onerror = triggerCountdown;
 
       // Fallback: if onend doesn't fire, start countdown after estimated duration
-      const estimatedMs = Math.max(text.length * 80, 3000) + 2000;
+      // Korean syllabic blocks take ~250ms each vs ~80ms per English letter
+      const msPerChar = language === "ko" ? 250 : 80;
+      const estimatedMs = Math.max(text.length * msPerChar, 3000) + 2000;
       fallbackTimer = setTimeout(triggerCountdown, estimatedMs);
 
       window.speechSynthesis.speak(utterance);
@@ -391,7 +393,8 @@ export default function StartInterviewPage() {
 
               utterance.onend = triggerCountdown;
               utterance.onerror = triggerCountdown;
-              const estimatedMs = Math.max(text.length * 80, 3000) + 2000;
+              const msPerChar = language === "ko" ? 250 : 80;
+              const estimatedMs = Math.max(text.length * msPerChar, 3000) + 2000;
               setTimeout(triggerCountdown, estimatedMs);
 
               window.speechSynthesis.speak(utterance);
