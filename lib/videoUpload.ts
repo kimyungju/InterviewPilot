@@ -15,7 +15,8 @@ export async function uploadVideoBlob(
     }
 
     const supabase = getSupabase();
-    const path = `${mockIdRef}/${answerId}.webm`;
+    const ext = blob.type.includes("mp4") ? "mp4" : "webm";
+    const path = `${mockIdRef}/${answerId}.${ext}`;
     const { error } = await supabase.storage
       .from("interview-videos")
       .upload(path, blob, {

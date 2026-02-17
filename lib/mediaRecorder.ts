@@ -9,6 +9,7 @@ const MIME_CANDIDATES = [
   "video/webm;codecs=vp9,opus",
   "video/webm;codecs=vp8,opus",
   "video/webm",
+  "video/mp4",
 ];
 
 function getSupportedMime(): string {

@@ -49,6 +49,7 @@ export default function StartInterviewPage() {
   const audioTrackRef = useRef<MediaStreamTrack | null>(null);
   const speechGenRef = useRef(0);
   const cloudTtsRef = useRef<CloudTtsHandle | null>(null);
+  const restartAttemptsRef = useRef(0);
 
   useEffect(() => {
     if (params.interviewId) {
@@ -77,15 +78,42 @@ export default function StartInterviewPage() {
         rec.interimResults = false;
         rec.lang = language === "ko" ? "ko-KR" : "en-US";
         rec.onresult = (event: SpeechRecognitionEvent) => {
+          restartAttemptsRef.current = 0;
           const parts: string[] = [];
           for (let i = 0; i < event.results.length; i++) {
             parts.push(event.results[i][0].transcript);
           }
           setUserAnswer(parts.join(" "));
         };
-        rec.onerror = () => {
-          setIsRecording(false);
-          isRecordingRef.current = false;
+        rec.onerror = (event: SpeechRecognitionErrorEvent) => {
+          const fatalErrors = ["not-allowed", "audio-capture", "network", "service-not-allowed"];
+          if (fatalErrors.includes(event.error)) {
+            setIsRecording(false);
+            isRecordingRef.current = false;
+            restartAttemptsRef.current = 0;
+          }
+          // Recoverable errors (no-speech, aborted): onend handler will auto-restart
+        };
+        rec.onend = () => {
+          if (isRecordingRef.current) {
+            if (restartAttemptsRef.current < 5) {
+              restartAttemptsRef.current += 1;
+              setTimeout(() => {
+                if (isRecordingRef.current && recognitionRef.current) {
+                  try {
+                    recognitionRef.current.start();
+                  } catch {
+                    setIsRecording(false);
+                    isRecordingRef.current = false;
+                  }
+                }
+              }, 300);
+            } else {
+              setIsRecording(false);
+              isRecordingRef.current = false;
+              restartAttemptsRef.current = 0;
+            }
+          }
         };
         setSpeechSupported(true);
         setRecognition(rec);
@@ -257,6 +285,7 @@ export default function StartInterviewPage() {
       stopVideoRecording(); // discard blob — user toggled off manually
     } else {
       setUserAnswer("");
+      restartAttemptsRef.current = 0;
       recognition.start();
       setIsRecording(true);
       isRecordingRef.current = true;
@@ -299,6 +328,7 @@ export default function StartInterviewPage() {
       setCountdown(null);
       if (!isRecordingRef.current && recognitionRef.current) {
         setUserAnswer("");
+        restartAttemptsRef.current = 0;
         recognitionRef.current.start();
         setIsRecording(true);
         isRecordingRef.current = true;

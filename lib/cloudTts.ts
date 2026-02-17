@@ -24,7 +24,15 @@ export async function speakWithCloudTts(
 
   audio.onended = () => handle.onended?.();
   audio.onerror = () => handle.onended?.();
-  audio.play();
+
+  const playPromise = audio.play();
+  if (playPromise !== undefined) {
+    playPromise.catch(() => {
+      // Autoplay blocked (common on iOS Safari without user gesture).
+      // Trigger onended so the countdown sequence can still proceed.
+      setTimeout(() => handle.onended?.(), 0);
+    });
+  }
 
   return handle;
 }
