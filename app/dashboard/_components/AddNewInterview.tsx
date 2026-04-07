@@ -117,16 +117,17 @@ export default function AddNewInterview() {
       try {
         const formData = new FormData();
         formData.append("file", file);
-        const { text } = await extractTextFromPdf(formData);
-        if (mode === "auto") {
+        const { text, error } = await extractTextFromPdf(formData);
+        if (error) {
+          setExtractError(error);
+          setPdfFile(null);
+        } else if (mode === "auto") {
           setResumeText(text);
         } else {
           setReferenceContent(text);
         }
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Failed to extract text.";
-        setExtractError(message);
+      } catch {
+        setExtractError("Failed to extract text.");
         setPdfFile(null);
       } finally {
         setExtracting(false);
