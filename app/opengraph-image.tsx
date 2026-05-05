@@ -110,10 +110,10 @@ export default async function OpengraphImage() {
           </div>
           <div
             style={{
-              fontSize: 124,
+              fontSize: 108,
               fontWeight: 700,
               color: "#1a1a1a",
-              letterSpacing: -3.5,
+              letterSpacing: -3,
               lineHeight: 1.0,
               marginTop: 22,
               fontFamily: "Libre Baskerville, serif",
@@ -123,10 +123,10 @@ export default async function OpengraphImage() {
           </div>
           <div
             style={{
-              fontSize: 124,
+              fontSize: 108,
               fontWeight: 700,
               color: "#1a1a1a",
-              letterSpacing: -3.5,
+              letterSpacing: -3,
               lineHeight: 1.0,
               fontFamily: "Libre Baskerville, serif",
             }}
@@ -135,10 +135,10 @@ export default async function OpengraphImage() {
           </div>
           <div
             style={{
-              fontSize: 24,
+              fontSize: 22,
               fontWeight: 400,
               color: "#555",
-              marginTop: 36,
+              marginTop: 32,
               maxWidth: 800,
               lineHeight: 1.45,
             }}
@@ -153,6 +153,7 @@ export default async function OpengraphImage() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            marginTop: 24,
           }}
         >
           <div
