@@ -22,8 +22,28 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "AI Mock Interview",
-  description: "Practice interviews with AI-generated questions and feedback",
+  metadataBase: new URL("https://interview-pilot-ace.vercel.app"),
+  title: {
+    default: "Interview Pilot — AI Mock Interview",
+    template: "%s | Interview Pilot",
+  },
+  description:
+    "AI mock interview platform with resume-aware question generation, real-time speech recognition, and competency-graded video feedback.",
+  openGraph: {
+    title: "Interview Pilot — AI Mock Interview",
+    description:
+      "AI mock interview platform with resume-aware questions and competency-graded video feedback.",
+    url: "https://interview-pilot-ace.vercel.app",
+    siteName: "Interview Pilot",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Interview Pilot — AI Mock Interview",
+    description:
+      "AI mock interview platform with resume-aware questions and competency-graded video feedback.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
