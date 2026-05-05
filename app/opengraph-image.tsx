@@ -4,7 +4,34 @@ export const alt = "Interview Pilot — AI Mock Interview Platform";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+const SUBSET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,—·-':/";
+
+async function loadGoogleFont(
+  family: string,
+  weight: number,
+  italic = false,
+): Promise<ArrayBuffer> {
+  const fam = family.replace(/ /g, "+");
+  const variant = italic ? `${weight}italic` : `${weight}`;
+  const url = `https://fonts.googleapis.com/css?family=${fam}:${variant}&text=${encodeURIComponent(SUBSET)}`;
+  const css = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/603.3.8 (KHTML, like Gecko) Version/10.1.2 Safari/603.3.8",
+    },
+  }).then((r) => r.text());
+  const match = css.match(/src:\s*url\((.+?)\)/);
+  if (!match) throw new Error(`Failed to load font: ${family} ${variant}`);
+  return fetch(match[1]).then((r) => r.arrayBuffer());
+}
+
 export default async function OpengraphImage() {
+  const [libreBaskerville, karla] = await Promise.all([
+    loadGoogleFont("Libre Baskerville", 700),
+    loadGoogleFont("Karla", 500),
+  ]);
+
   return new ImageResponse(
     (
       <div
@@ -16,49 +43,52 @@ export default async function OpengraphImage() {
           flexDirection: "column",
           padding: "80px",
           position: "relative",
+          fontFamily: "Karla, sans-serif",
         }}
       >
+        {/* Bottom-right teal gradient blob */}
         <div
           style={{
             position: "absolute",
             right: 0,
             bottom: 0,
-            width: "65%",
-            height: "65%",
+            width: "75%",
+            height: "75%",
             background:
               "linear-gradient(135deg, transparent 0%, rgba(13, 132, 116, 0.10) 100%)",
           }}
         />
 
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+        {/* Top: brand */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+          }}
+        >
           <div
             style={{
-              width: 60,
-              height: 60,
+              width: 10,
+              height: 10,
+              borderRadius: 5,
               background: "#0d8474",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 28,
-              fontWeight: 800,
-              color: "#ffffff",
-              letterSpacing: -0.5,
             }}
-          >
-            IP
-          </div>
+          />
           <div
             style={{
-              fontSize: 32,
+              fontSize: 30,
               fontWeight: 700,
               color: "#1a1a1a",
               letterSpacing: -0.5,
+              fontFamily: "Libre Baskerville, serif",
             }}
           >
             Interview Pilot
           </div>
         </div>
 
+        {/* Hero */}
         <div
           style={{
             flex: 1,
@@ -69,27 +99,55 @@ export default async function OpengraphImage() {
         >
           <div
             style={{
-              fontSize: 92,
-              fontWeight: 800,
-              color: "#1a1a1a",
-              letterSpacing: -2.5,
-              lineHeight: 1.0,
+              fontSize: 17,
+              fontWeight: 700,
+              color: "#0d8474",
+              letterSpacing: 4,
+              textTransform: "uppercase",
             }}
           >
-            AI Mock Interview
+            Interview Practice
           </div>
           <div
             style={{
-              fontSize: 32,
-              fontWeight: 400,
-              color: "#555",
-              marginTop: 24,
+              fontSize: 124,
+              fontWeight: 700,
+              color: "#1a1a1a",
+              letterSpacing: -3.5,
+              lineHeight: 1.0,
+              marginTop: 22,
+              fontFamily: "Libre Baskerville, serif",
             }}
           >
-            Resume-aware questions · Real-time TTS · Video feedback
+            Prepare with
+          </div>
+          <div
+            style={{
+              fontSize: 124,
+              fontWeight: 700,
+              color: "#1a1a1a",
+              letterSpacing: -3.5,
+              lineHeight: 1.0,
+              fontFamily: "Libre Baskerville, serif",
+            }}
+          >
+            confidence.
+          </div>
+          <div
+            style={{
+              fontSize: 24,
+              fontWeight: 400,
+              color: "#555",
+              marginTop: 36,
+              maxWidth: 800,
+              lineHeight: 1.45,
+            }}
+          >
+            Five AI-tailored questions for your role. Speak your answers naturally. Get feedback that helps you improve.
           </div>
         </div>
 
+        {/* FOOTER */}
         <div
           style={{
             display: "flex",
@@ -99,12 +157,13 @@ export default async function OpengraphImage() {
         >
           <div
             style={{
-              fontSize: 22,
+              fontSize: 20,
               color: "#888",
               fontFamily: "monospace",
+              letterSpacing: 0.5,
             }}
           >
-            Next.js · OpenAI · Supabase · Clerk
+            01 Tailored · 02 Speak · 03 Feedback
           </div>
           <div
             style={{
@@ -118,6 +177,22 @@ export default async function OpengraphImage() {
         </div>
       </div>
     ),
-    { ...size },
+    {
+      ...size,
+      fonts: [
+        {
+          name: "Libre Baskerville",
+          data: libreBaskerville,
+          weight: 700,
+          style: "normal",
+        },
+        {
+          name: "Karla",
+          data: karla,
+          weight: 500,
+          style: "normal",
+        },
+      ],
+    },
   );
 }
