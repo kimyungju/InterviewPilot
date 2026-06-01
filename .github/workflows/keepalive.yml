@@ -2,16 +2,51 @@ name: Supabase Keepalive
 
 on:
   schedule:
-    # 매주 월/목 06:00 UTC (KST 15:00) — 7일 inactivity 한계 안에서 두 번 핑
-    - cron: '0 6 * * 1,4'
+    - cron: '0 6 * * *'   # 매일 06:00 UTC (KST 15:00)
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  ping:
+  keepalive:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Ping Postgres
+      - name: Postgres heartbeat (write)
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: psql "$SUPABASE_DB_URL" -tAc "SELECT 1"
+        run: |
+          test -n "$SUPABASE_DB_URL" || { echo "SUPABASE_DB_URL empty"; exit 1; }
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          create table if not exists public.heartbeat (
+            id int primary key,
+            last_ping timestamptz default now()
+          );
+          alter table public.heartbeat enable row level security;
+          insert into public.heartbeat (id, last_ping) values (1, now())
+            on conflict (id) do update set last_ping = now();
+          SQL
+          echo "Postgres heartbeat OK"
+
+      - name: Keep GitHub schedule alive (commit stamp only if repo idle >= 50 days)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          API="https://api.github.com/repos/$REPO"
+          PUSHED=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$API" | jq -r '.pushed_at')
+          DAYS=$(( ( $(date -u +%s) - $(date -u -d "$PUSHED" +%s) ) / 86400 ))
+          echo "Repo idle for $DAYS day(s) (last push: $PUSHED)"
+          if [ "$DAYS" -lt 50 ]; then
+            echo "Under 50 days. No keepalive commit needed."
+            exit 0
+          fi
+          FILE=".github/keepalive-stamp"
+          STAMP=$(date -u +%FT%TZ)
+          OLD_SHA=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" "$API/contents/$FILE" | jq -r '.sha // empty')
+          NEW_CONTENT=$(printf 'keepalive stamp\n%s\n' "$STAMP" | base64 -w0)
+          PAYLOAD=$(jq -nc --arg m "chore: keepalive stamp $STAMP" --arg c "$NEW_CONTENT" --arg s "$OLD_SHA" \
+            'if $s == "" then {message:$m, content:$c} else {message:$m, content:$c, sha:$s} end')
+          curl -fsS -X PUT -H "Authorization: Bearer $GH_TOKEN" "$API/contents/$FILE" -d "$PAYLOAD" >/dev/null
+          echo "Keepalive stamp committed."
