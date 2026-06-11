@@ -20,7 +20,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # npm install (not npm ci): npm ci fails with EBADPLATFORM on Linux for
+        # esbuild's platform-specific optional deps; npm install re-resolves them.
+        run: npm install
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
