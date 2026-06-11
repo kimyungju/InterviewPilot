@@ -3,24 +3,9 @@
 import { db } from "@/lib/db";
 import { UserAnswer } from "@/lib/schema";
 import { generateFromPrompt } from "@/lib/gemini";
+import { normalizeFeedback } from "@/lib/feedbackSchema";
 import { eq, and } from "drizzle-orm";
 import { currentUser } from "@clerk/nextjs/server";
-
-interface EnhancedFeedback {
-  rating: number;
-  competencies: {
-    technicalKnowledge: number;
-    communicationClarity: number;
-    problemSolving: number;
-    relevance: number;
-  };
-  strengths: string;
-  praise: string;
-  correction: string;
-  actionableTip: string;
-  improvements: string;
-  suggestedAnswer: string;
-}
 
 function getLeniency(difficulty: string): { label: string; instructions: string; labelKo: string; instructionsKo: string } {
   switch (difficulty) {
@@ -158,12 +143,16 @@ Respond with ONLY JSON:
 }`;
 
   const responseText = await generateFromPrompt(feedbackPrompt, 0.7);
-  let parsed: EnhancedFeedback;
+  let rawParsed: unknown;
   try {
-    parsed = JSON.parse(responseText);
+    rawParsed = JSON.parse(responseText);
   } catch {
     throw new Error("AI returned invalid response. Please try again.");
   }
+
+  // Validate + normalize the LLM output before it touches the DB or the PDF
+  // report: clamp ratings to 1..5, coerce stringified numbers, fill defaults.
+  const parsed = normalizeFeedback(rawParsed);
 
   const feedbackJson = JSON.stringify({
     rating: parsed.rating,
